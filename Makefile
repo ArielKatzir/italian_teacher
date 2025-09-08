@@ -30,8 +30,26 @@ setup:
 test:
 	pytest tests/ -v
 
+test-unit:
+	pytest tests/unit/ -v -m "unit or not integration"
+
+test-integration:
+	pytest tests/integration/ -v -m integration
+
+test-fast:
+	pytest tests/ -v -m "not slow and not ml"
+
+test-ml:
+	pytest tests/ -v --ml-tests -m ml
+
 test-cov:
-	pytest tests/ --cov=italian_teacher --cov-report=html
+	pytest tests/ --cov=italian_teacher --cov-report=html --cov-report=term
+
+test-cov-unit:
+	pytest tests/unit/ --cov=italian_teacher --cov-report=html
+
+test-watch:
+	pytest tests/ -v --tb=short -x --lf
 
 # Code formatting
 format:

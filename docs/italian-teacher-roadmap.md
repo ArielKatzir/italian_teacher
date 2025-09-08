@@ -7,8 +7,8 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 
 ### 1.1 Project Setup & Environment
 - [x] Initialize repository structure
-- [ ] Set up development environment (Python/PyTorch)
-- [ ] Configure dependency management (requirements.txt/poetry)
+- [x] Set up development environment (Python/PyTorch)
+- [x] Configure dependency management (requirements.txt/poetry)
 - [ ] Establish testing framework (pytest)
 - [ ] Set up CI/CD pipeline
 
