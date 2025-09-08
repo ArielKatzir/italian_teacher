@@ -9,8 +9,7 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [x] Initialize repository structure
 - [x] Set up development environment (Python/PyTorch)
 - [x] Configure dependency management (requirements.txt/poetry)
-- [ ] Establish testing framework (pytest)
-- [ ] Set up CI/CD pipeline
+- [x] Establish testing framework (pytest)
 
 ### 1.2 Core Agent Framework
 - [ ] Design base Agent class with common interfaces
@@ -168,6 +167,7 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 ## Phase 8: Deployment & Launch (Weeks 29-32)
 
 ### 8.1 Production Deployment
+- [ ] Set up CI/CD pipeline (GitHub Actions)
 - [ ] Set up production infrastructure
 - [ ] Configure monitoring and logging
 - [ ] Implement automated deployment pipelines
