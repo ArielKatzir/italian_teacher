@@ -2,7 +2,7 @@
 Integration tests for agent interactions and workflows.
 """
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 

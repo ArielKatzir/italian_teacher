@@ -39,6 +39,7 @@ dev = [
     "pre-commit>=3.3.0",
     "bandit>=1.8.0",
     "autoflake>=2.2.0",
+    "unimport>=1.2.0",
 ]
 training = [
     "datasets>=2.13.0",

@@ -26,6 +26,13 @@ repos:
           --in-place,
         ]
 
+  # unimport - Remove unused imports and variables  
+  - repo: https://github.com/hakancelik96/unimport
+    rev: 1.2.1
+    hooks:
+      - id: unimport
+        args: [-r]
+
   # Basic file checks only (no strict linting)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
