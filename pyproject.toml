@@ -37,6 +37,7 @@ dev = [
     "flake8>=6.0.0",
     "mypy>=1.4.0",
     "pre-commit>=3.3.0",
+    "bandit>=1.8.0",
 ]
 training = [
     "datasets>=2.13.0",
@@ -57,7 +58,7 @@ italian-teacher = "italian_teacher.cli:main"
 where = ["src"]
 
 [tool.black]
-line-length = 88
+line-length = 100
 target-version = ['py39']
 include = '\.pyi?$'
 extend-exclude = '''
@@ -75,7 +76,7 @@ extend-exclude = '''
 [tool.isort]
 profile = "black"
 multi_line_output = 3
-line_length = 88
+line_length = 100
 known_first_party = ["italian_teacher"]
 
 [tool.mypy]

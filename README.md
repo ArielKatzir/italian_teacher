@@ -5,7 +5,7 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 ## 🎭 Meet the Agents
 
 - **Marco** - Friendly conversationalist who encourages speaking practice
-- **Professoressa Rossi** - Grammar expert who corrects mistakes and explains rules  
+- **Professoressa Rossi** - Grammar expert who corrects mistakes and explains rules
 - **Nonna Giulia** - Cultural storyteller sharing idioms, traditions, and regional expressions
 - **Lorenzo** - Young Italian introducing slang, modern expressions, and pop culture
 - **Coordinator** - Manages conversations, tracks progress, and orchestrates agent interactions
@@ -23,27 +23,29 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 git clone <repository-url>
 cd italian_teacher
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Create and activate virtual environment
+python -m venv ~/.venvs/py312  # or: python -m venv venv
+source ~/.venvs/py312/bin/activate  # or: source venv/bin/activate
 
 # Install dependencies
-pip install -e ".[dev,training,audio]"
-
-# Or install just core dependencies
-pip install -r requirements.txt
+make install-dev
+# Or manually: pip install -e ".[dev,training,audio]"
 ```
 
 ### Running the System
 
+**Important**: Always activate your virtual environment first!
 ```bash
-# Start the API server (development mode)
-uvicorn italian_teacher.api.main:app --reload
+source ~/.venvs/py312/bin/activate  # Activate venv
 
-# Run a conversation session
+# Then use Make commands (no activation needed in Make)
+make run-dev          # Start development server
+make test             # Run tests
+make format           # Format code
+make lint             # Run linting
+
+# Or run commands directly
 python -m italian_teacher.cli chat
-
-# Train agent models (after data preparation)
 python scripts/train_agents.py --config configs/development.yaml
 ```
 
