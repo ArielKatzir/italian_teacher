@@ -136,7 +136,7 @@ See `italian-teacher-roadmap.md` for detailed training procedures.
 
 ## 📋 Roadmap
 
-See [italian-teacher-roadmap.md](./italian-teacher-roadmap.md) for the complete 32-week development plan.
+See [italian-teacher-roadmap.md](./docs/italian-teacher-roadmap.md) for the complete 32-week development plan.
 
 ## 🤝 Contributing
 

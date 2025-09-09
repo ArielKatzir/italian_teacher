@@ -12,11 +12,12 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [x] Establish testing framework (pytest)
 
 ### 1.2 Core Agent Framework
-- [ ] Design base Agent class with common interfaces
+- [x] Design base Agent class with common interfaces
 - [ ] Implement Agent communication protocols
 - [ ] Create conversation state management system
 - [ ] Build agent registration and discovery system
 - [ ] Develop message passing infrastructure
+- [ ] Implement data retention policy job scheduler integration
 
 ### 1.3 Coordinator Agent Implementation
 - [ ] Context switching logic
@@ -172,6 +173,8 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [ ] Configure monitoring and logging
 - [ ] Implement automated deployment pipelines
 - [ ] Create disaster recovery procedures
+- [ ] Implement job scheduler for data retention cleanup (Celery/Redis integration)
+- [ ] Create cleanup job management interface
 
 ### 8.2 Launch Preparation
 - [ ] Create user onboarding flows

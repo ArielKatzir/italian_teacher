@@ -7,12 +7,12 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 __version__ = "0.1.0"
 __author__ = "Italian Teacher Team"
 
-from .core.agent import BaseAgent
-from .core.coordinator import Coordinator
-from .core.conversation import ConversationManager
+from .core.agent_config import load_agent_personality
+from .core.base_agent import AgentMessage, AgentPersonality, BaseAgent
 
 __all__ = [
     "BaseAgent",
-    "Coordinator", 
-    "ConversationManager",
+    "AgentMessage",
+    "AgentPersonality",
+    "load_agent_personality",
 ]
