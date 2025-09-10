@@ -5,15 +5,16 @@ This module defines the abstract base class that all agents (Marco, Professoress
 Nonna Giulia, Lorenzo) inherit from, ensuring consistent interfaces and behavior.
 """
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, validator
 
+from .agent_events import AgentResponse, EventHandler, EventType
 from .logging_config import get_agent_logger
 from .retention_policy import RetentionPreference, default_retention_manager
 
@@ -162,7 +163,7 @@ class AgentPersonality(BaseModel):
         }
 
 
-class BaseAgent(ABC):
+class BaseAgent(EventHandler):
     """
     Abstract base class for all Italian Teacher agents.
 
@@ -172,7 +173,11 @@ class BaseAgent(ABC):
     """
 
     def __init__(
-        self, agent_id: str, personality: AgentPersonality, config: Optional[Dict[str, Any]] = None
+        self,
+        agent_id: str,
+        personality: AgentPersonality,
+        config: Optional[Dict[str, Any]] = None,
+        event_bus: Optional["AgentEventBus"] = None,
     ):
         """
         Initialize the base agent.
@@ -202,6 +207,9 @@ class BaseAgent(ABC):
         # Set up structured logging
         self.logger = get_agent_logger(agent_id=agent_id, agent_name=personality.name)
 
+        # Event bus for inter-agent communication
+        self.event_bus = event_bus
+
     async def initialize(self) -> bool:
         """
         Initialize the agent with necessary resources.
@@ -217,6 +225,17 @@ class BaseAgent(ABC):
         try:
             await self._load_personality_config()
             await self._prepare_response_templates()
+
+            # Subscribe to event bus if available
+            if self.event_bus:
+                await self.event_bus.subscribe(
+                    agent_id=self.agent_id, event_types=self.get_handled_event_types(), handler=self
+                )
+                self.logger.info(
+                    "subscribed_to_event_bus",
+                    event_types=[et.value for et in self.get_handled_event_types()],
+                )
+
             self._is_initialized = True
             self.status = AgentStatus.ACTIVE
             self.logger.info("agent_initialized_successfully")
@@ -321,6 +340,25 @@ class BaseAgent(ABC):
             Confidence score 0.0-1.0 (higher = more confident)
         """
 
+    # Event handling methods (from EventHandler interface)
+
+    def get_handled_event_types(self) -> Set[EventType]:
+        """
+        Get the event types this agent can handle.
+
+        All agents can handle basic collaboration events - they differ in
+        the QUALITY and STYLE of help they provide, not the TYPES.
+
+        Returns:
+            Set of event types this agent supports
+        """
+        return {
+            EventType.REQUEST_HELP,
+            EventType.REQUEST_HANDOFF,
+            EventType.SHARE_CONTEXT,
+            EventType.REQUEST_CORRECTION_REVIEW,
+        }
+
     def add_message_to_conversation(self, message: AgentMessage) -> None:
         """Add a message to the conversation history."""
         if self.context:
@@ -400,6 +438,90 @@ class BaseAgent(ABC):
                 "context": context,
             },
         )
+
+    # Helper methods for common communication patterns
+    async def request_help(
+        self, user_message: str, help_type: str = "general", **additional_data
+    ) -> Optional[AgentResponse]:
+        """
+        Request help from another agent while staying primary.
+        The event bus/orchestrator will select the most appropriate agent.
+
+        Args:
+            user_message: The user message that needs help
+            help_type: Type of help needed
+            **additional_data: Additional context data
+
+        Returns:
+            Response from the selected helper agent, if any
+        """
+        if not self.event_bus:
+            self.logger.warning("no_event_bus_available", help_type=help_type)
+            return None
+
+        from .agent_events import HelpRequest
+
+        event = HelpRequest(
+            sender_id=self.agent_id,
+            session_id=self.context.session_id if self.context else None,
+            payload={
+                "user_message": user_message,
+                "help_type": help_type,
+                "sender_personality": {
+                    "formality_level": self.personality.formality_level,
+                    "correction_style": self.personality.correction_style,
+                },
+                **additional_data,
+            },
+        )
+
+        responses = await self.event_bus.publish(event)
+        return responses[0] if responses else None
+
+    async def request_handoff(
+        self, reason: str, message_count: int = 1, **additional_data
+    ) -> Optional[AgentResponse]:
+        """
+        Request to hand off conversation to another agent.
+        The event bus/orchestrator will select the most appropriate agent.
+
+        Args:
+            reason: Reason for handoff
+            message_count: Number of messages in current interaction
+            **additional_data: Additional context data
+
+        Returns:
+            Response from selected target agent about handoff
+        """
+        if not self.event_bus:
+            self.logger.warning("no_event_bus_available", reason=reason)
+            return None
+
+        from .agent_events import HandoffRequest
+
+        # Determine handoff type based on message count
+        handoff_type = "temporary" if message_count < 3 else "permanent"
+
+        event = HandoffRequest(
+            sender_id=self.agent_id,
+            session_id=self.context.session_id if self.context else None,
+            payload={
+                "reason": reason,
+                "handoff_type": handoff_type,
+                "message_count": message_count,
+                "conversation_context": {
+                    "user_language_level": (
+                        self.context.user_language_level if self.context else "unknown"
+                    ),
+                    "learning_goals": self.context.learning_goals if self.context else [],
+                    "recent_messages": [msg.content for msg in self.get_recent_messages(5)],
+                },
+                **additional_data,
+            },
+        )
+
+        responses = await self.event_bus.publish(event)
+        return responses[0] if responses else None
 
     # Protected methods for subclasses to override
 

@@ -6,7 +6,7 @@ including message handling, status management, and personality configuration.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Set
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -19,6 +19,7 @@ from italian_teacher.core import (
     ConversationContext,
     MessageType,
 )
+from italian_teacher.core.agent_events import AgentEvent, AgentResponse, EventType
 
 
 # Test agent implementation for testing the abstract base class
@@ -39,6 +40,19 @@ class TestAgent(BaseAgent):
         self, message: str, context: Optional[ConversationContext] = None
     ) -> float:
         return self.can_handle_message_mock(message, context)
+
+    async def handle_event(self, event: AgentEvent) -> Optional[AgentResponse]:
+        """Mock event handler for testing."""
+        return AgentResponse(
+            original_event_id=event.id,
+            responder_id=self.agent_id,
+            success=True,
+            payload={"test_response": "Mock response"},
+        )
+
+    def get_handled_event_types(self) -> Set[EventType]:
+        """Return empty set for testing."""
+        return set()
 
 
 @pytest.fixture
