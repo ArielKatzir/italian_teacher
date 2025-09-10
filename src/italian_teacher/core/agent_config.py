@@ -6,11 +6,11 @@ validating them, and creating AgentPersonality objects.
 """
 
 import json
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
+from pydantic import ValidationError
 
 from .base_agent import AgentPersonality
 
@@ -102,45 +102,18 @@ class AgentConfigLoader:
 
     def _validate_and_create_personality(self, config_data: Dict[str, Any]) -> AgentPersonality:
         """Validate configuration data and create AgentPersonality object."""
-        required_fields = ["name", "role", "speaking_style"]
+        try:
+            # Pydantic handles all validation, defaults, and type checking
+            return AgentPersonality.model_validate(config_data)
+        except ValidationError as e:
+            # Convert Pydantic validation errors to our custom error type
+            error_details = []
+            for error in e.errors():
+                field = ".".join(str(x) for x in error["loc"])
+                message = error["msg"]
+                error_details.append(f"{field}: {message}")
 
-        for field in required_fields:
-            if field not in config_data:
-                raise AgentConfigError(f"Missing required field: {field}")
-
-        # Set defaults for optional fields
-        config_data.setdefault("personality_traits", [])
-        config_data.setdefault("expertise_areas", [])
-        config_data.setdefault("response_patterns", {})
-        config_data.setdefault("cultural_knowledge", {})
-        config_data.setdefault("correction_style", "gentle")
-        config_data.setdefault("enthusiasm_level", 5)
-
-        # Set defaults for new configurable parameters
-        config_data.setdefault("formality_level", 5)
-        config_data.setdefault("correction_frequency", 5)
-        config_data.setdefault("topic_focus", [])
-        config_data.setdefault("patience_level", 5)
-        config_data.setdefault("encouragement_frequency", 5)
-
-        # Validate scale fields (1-10)
-        scale_fields = [
-            "enthusiasm_level",
-            "formality_level",
-            "correction_frequency",
-            "patience_level",
-            "encouragement_frequency",
-        ]
-        for field in scale_fields:
-            if not 1 <= config_data[field] <= 10:
-                raise AgentConfigError(f"{field} must be between 1 and 10")
-
-        # Validate correction style
-        valid_styles = ["gentle", "direct", "encouraging"]
-        if config_data["correction_style"] not in valid_styles:
-            raise AgentConfigError(f"correction_style must be one of: {valid_styles}")
-
-        return AgentPersonality(**config_data)
+            raise AgentConfigError(f"Invalid configuration: {'; '.join(error_details)}")
 
     def save_agent_personality(self, agent_name: str, personality: AgentPersonality) -> None:
         """
@@ -154,7 +127,7 @@ class AgentConfigLoader:
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
         config_file = self.config_dir / f"{agent_name}.yaml"
-        config_data = asdict(personality)
+        config_data = personality.model_dump()
 
         try:
             with open(config_file, "w", encoding="utf-8") as f:

@@ -12,6 +12,9 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from pydantic import BaseModel, Field, validator
+
+from .logging_config import get_agent_logger
 from .retention_policy import RetentionPreference, default_retention_manager
 
 
@@ -79,26 +82,84 @@ class ConversationContext:
     cleanup_job_id: Optional[str] = None  # Track cleanup job for cancellation
 
 
-@dataclass
-class AgentPersonality:
+class AgentPersonality(BaseModel):
     """Configuration for an agent's personality traits."""
 
-    name: str
-    role: str
-    speaking_style: str
-    personality_traits: List[str] = field(default_factory=list)
-    expertise_areas: List[str] = field(default_factory=list)
-    response_patterns: Dict[str, str] = field(default_factory=dict)
-    cultural_knowledge: Dict[str, Any] = field(default_factory=dict)
-    correction_style: str = "gentle"  # gentle, direct, encouraging
-    enthusiasm_level: int = 5  # 1-10 scale
+    name: str = Field(..., min_length=1, max_length=50, description="Agent's display name")
+    role: str = Field(..., min_length=1, max_length=100, description="Agent's role/profession")
+    speaking_style: str = Field(..., min_length=1, description="How the agent communicates")
+    personality_traits: List[str] = Field(
+        default_factory=list, description="Key personality characteristics"
+    )
+    expertise_areas: List[str] = Field(
+        default_factory=list, description="Areas of specialized knowledge"
+    )
+    response_patterns: Dict[str, str] = Field(
+        default_factory=dict, description="Template responses for common situations"
+    )
+    cultural_knowledge: Dict[str, Any] = Field(
+        default_factory=dict, description="Cultural context and knowledge"
+    )
+
+    correction_style: str = Field(default="gentle", description="How corrections are delivered")
+    enthusiasm_level: int = Field(
+        default=5, ge=1, le=10, description="Energy level (1=calm, 10=very energetic)"
+    )
 
     # Configurable behavior parameters
-    formality_level: int = 5  # 1-10 (1=very informal, 10=very formal)
-    correction_frequency: int = 5  # 1-10 (1=rarely correct, 10=correct everything)
-    topic_focus: List[str] = field(default_factory=list)  # preferred conversation topics
-    patience_level: int = 5  # 1-10 (how patient with slow learners)
-    encouragement_frequency: int = 5  # 1-10 (how often to give positive feedback)
+    formality_level: int = Field(
+        default=5, ge=1, le=10, description="Language formality (1=very informal, 10=very formal)"
+    )
+    correction_frequency: int = Field(
+        default=5, ge=1, le=10, description="How often to correct (1=rarely, 10=always)"
+    )
+    topic_focus: List[str] = Field(
+        default_factory=list, description="Preferred conversation topics"
+    )
+    patience_level: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Patience with slow learners (1=impatient, 10=very patient)",
+    )
+    encouragement_frequency: int = Field(
+        default=5, ge=1, le=10, description="How often to encourage (1=rarely, 10=constantly)"
+    )
+
+    @validator("correction_style")
+    def validate_correction_style(cls, v):
+        valid_styles = ["gentle", "direct", "encouraging"]
+        if v not in valid_styles:
+            raise ValueError(f"correction_style must be one of: {valid_styles}")
+        return v
+
+    @validator("personality_traits", "expertise_areas", "topic_focus")
+    def validate_string_lists(cls, v):
+        if not isinstance(v, list):
+            raise ValueError("must be a list")
+        for item in v:
+            if not isinstance(item, str) or len(item.strip()) == 0:
+                raise ValueError("list items must be non-empty strings")
+        return v
+
+    class Config:
+        frozen = True  # Make immutable to prevent accidental changes
+        json_schema_extra = {
+            "example": {
+                "name": "Marco",
+                "role": "Friendly Conversationalist",
+                "speaking_style": "casual_friendly",
+                "personality_traits": ["encouraging", "patient", "enthusiastic"],
+                "expertise_areas": ["conversation", "pronunciation"],
+                "correction_style": "gentle",
+                "enthusiasm_level": 8,
+                "formality_level": 3,
+                "correction_frequency": 6,
+                "topic_focus": ["travel", "food", "daily_life"],
+                "patience_level": 8,
+                "encouragement_frequency": 8,
+            }
+        }
 
 
 class BaseAgent(ABC):
@@ -138,6 +199,9 @@ class BaseAgent(ABC):
         # Retention policy manager
         self.retention_manager = default_retention_manager
 
+        # Set up structured logging
+        self.logger = get_agent_logger(agent_id=agent_id, agent_name=personality.name)
+
     async def initialize(self) -> bool:
         """
         Initialize the agent with necessary resources.
@@ -145,15 +209,24 @@ class BaseAgent(ABC):
         Returns:
             True if initialization successful, False otherwise
         """
+        self.logger.info(
+            "agent_initializing",
+            formality_level=self.personality.formality_level,
+            correction_frequency=self.personality.correction_frequency,
+        )
         try:
             await self._load_personality_config()
             await self._prepare_response_templates()
             self._is_initialized = True
             self.status = AgentStatus.ACTIVE
+            self.logger.info("agent_initialized_successfully")
             return True
         except Exception as e:
             self.status = AgentStatus.ERROR
             self._error_count += 1
+            self.logger.error(
+                "agent_initialization_failed", error_type=type(e).__name__, error_message=str(e)
+            )
             raise RuntimeError(f"Agent {self.agent_id} initialization failed: {e}")
 
     async def activate(self, context: ConversationContext) -> None:
@@ -173,6 +246,15 @@ class BaseAgent(ABC):
         # Reset cleanup timer on reactivation
         await self._reset_cleanup_timer()
 
+        # Log activation
+        self.logger.info(
+            "agent_activated",
+            session_id=context.session_id,
+            user_id=context.user_id,
+            user_language_level=context.user_language_level,
+            learning_goals=context.learning_goals,
+        )
+
         # Log activation in activity log
         self._log_activity(
             event_type="activated",
@@ -182,11 +264,21 @@ class BaseAgent(ABC):
 
     async def deactivate(self) -> None:
         """Deactivate the agent and clean up resources."""
+        session_id = self.context.session_id if self.context else None
+        conversation_message_count = len(self.context.conversation_history) if self.context else 0
+
         self.status = AgentStatus.INACTIVE
         await self._save_conversation_state()
 
         # Schedule cleanup for this conversation
         await self._schedule_cleanup()
+
+        # Log deactivation
+        self.logger.info(
+            "agent_deactivated",
+            session_id=session_id,
+            conversation_message_count=conversation_message_count,
+        )
 
         # Log deactivation in activity log
         if self.context:
@@ -288,6 +380,16 @@ class BaseAgent(ABC):
             AgentStatus.ERROR if self._error_count >= self._max_errors else AgentStatus.ACTIVE
         )
 
+        # Log error with structured logging
+        self.logger.error(
+            "agent_error",
+            error_type=type(error).__name__,
+            error_message=str(error),
+            error_count=self._error_count,
+            context=context,
+            max_errors_reached=self._error_count >= self._max_errors,
+        )
+
         # Log error in activity log
         self._log_activity(
             event_type="error",
@@ -298,9 +400,6 @@ class BaseAgent(ABC):
                 "context": context,
             },
         )
-
-        # Log error (could be sent to monitoring system)
-        print(f"Agent {self.agent_id} error: {error}")
 
     # Protected methods for subclasses to override
 
