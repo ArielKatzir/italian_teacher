@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from italian_teacher.core import (
+from core import (
     AgentMessage,
     AgentPersonality,
     AgentStatus,
@@ -19,15 +19,29 @@ from italian_teacher.core import (
     ConversationContext,
     MessageType,
 )
-from italian_teacher.core.agent_events import AgentEvent, AgentResponse, EventType
+from core.agent_events import AgentEvent, AgentResponse, EventType
+from core.conversation_state import ConversationStateManager, InMemoryConversationStore
 
 
 # Test agent implementation for testing the abstract base class
 class TestAgent(BaseAgent):
     """Concrete implementation of BaseAgent for testing."""
 
-    def __init__(self, agent_id: str, personality: AgentPersonality, config=None):
-        super().__init__(agent_id, personality, config)
+    def __init__(
+        self,
+        agent_id: str,
+        personality: AgentPersonality,
+        config=None,
+        event_bus=None,
+        conversation_manager=None,
+    ):
+        super().__init__(
+            agent_id,
+            personality,
+            config,
+            event_bus=event_bus,
+            conversation_manager=conversation_manager,
+        )
         self.generate_response_mock = AsyncMock()
         self.can_handle_message_mock = Mock(return_value=0.8)
 
@@ -85,6 +99,20 @@ def sample_context():
 def test_agent(sample_personality):
     """Create a test agent instance."""
     return TestAgent("test_agent_1", sample_personality)
+
+
+@pytest.fixture
+def conversation_manager():
+    """Create a conversation state manager for testing."""
+    return ConversationStateManager(InMemoryConversationStore())
+
+
+@pytest.fixture
+def test_agent_with_conversation_manager(sample_personality, conversation_manager):
+    """Create a test agent with conversation state management."""
+    return TestAgent(
+        "test_agent_with_state", sample_personality, conversation_manager=conversation_manager
+    )
 
 
 class TestAgentMessage:
@@ -401,3 +429,71 @@ class TestBaseAgent:
         assert agent.config == custom_config
         assert agent.config["max_response_length"] == 200
         assert agent.config["debug"] is True
+
+
+class TestBaseAgentConversationState:
+    """Test BaseAgent integration with conversation state management."""
+
+    def test_agent_with_conversation_manager(
+        self, test_agent_with_conversation_manager, conversation_manager
+    ):
+        """Test agent initialization with conversation manager."""
+        agent = test_agent_with_conversation_manager
+        assert agent.conversation_manager is conversation_manager
+
+    def test_agent_with_default_conversation_manager(self, sample_personality):
+        """Test that agent gets default conversation manager if none provided."""
+        agent = TestAgent("test_agent", sample_personality)
+        assert agent.conversation_manager is not None
+        # Should get the default instance
+        from core.conversation_state import default_conversation_manager
+
+        assert agent.conversation_manager is default_conversation_manager
+
+    @pytest.mark.asyncio
+    async def test_activation_saves_context(
+        self, test_agent_with_conversation_manager, sample_context
+    ):
+        """Test that agent activation saves conversation context."""
+        agent = test_agent_with_conversation_manager
+        agent._is_initialized = True
+
+        await agent.activate(sample_context)
+
+        # Verify context was saved to conversation manager
+        loaded_context = await agent.conversation_manager.get_context(sample_context.session_id)
+        assert loaded_context is not None
+        assert loaded_context.session_id == sample_context.session_id
+        assert loaded_context.user_id == sample_context.user_id
+
+    @pytest.mark.asyncio
+    async def test_deactivation_saves_state(
+        self, test_agent_with_conversation_manager, sample_context
+    ):
+        """Test that agent deactivation saves conversation state."""
+        agent = test_agent_with_conversation_manager
+        agent.context = sample_context
+        agent.status = AgentStatus.ACTIVE
+
+        await agent.deactivate()
+
+        # Verify final state was saved
+        loaded_context = await agent.conversation_manager.get_context(sample_context.session_id)
+        assert loaded_context is not None
+
+    @pytest.mark.asyncio
+    async def test_load_conversation_state(
+        self, test_agent_with_conversation_manager, sample_context
+    ):
+        """Test loading conversation state from persistence."""
+        agent = test_agent_with_conversation_manager
+
+        # Save context first
+        await agent.conversation_manager.save_context(sample_context)
+
+        # Load it back
+        loaded_context = await agent.load_conversation_state(sample_context.session_id)
+
+        assert loaded_context is not None
+        assert loaded_context.session_id == sample_context.session_id
+        assert loaded_context.user_id == sample_context.user_id

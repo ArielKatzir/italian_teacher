@@ -178,6 +178,7 @@ class BaseAgent(EventHandler):
         personality: AgentPersonality,
         config: Optional[Dict[str, Any]] = None,
         event_bus: Optional["AgentEventBus"] = None,
+        conversation_manager: Optional["ConversationStateManager"] = None,
     ):
         """
         Initialize the base agent.
@@ -209,6 +210,13 @@ class BaseAgent(EventHandler):
 
         # Event bus for inter-agent communication
         self.event_bus = event_bus
+
+        # Conversation state management
+        self.conversation_manager = conversation_manager
+        if conversation_manager is None:
+            from .conversation_state import default_conversation_manager
+
+            self.conversation_manager = default_conversation_manager
 
     async def initialize(self) -> bool:
         """
@@ -264,6 +272,10 @@ class BaseAgent(EventHandler):
 
         # Reset cleanup timer on reactivation
         await self._reset_cleanup_timer()
+
+        # Save initial context state
+        if self.conversation_manager:
+            await self.conversation_manager.save_context(context)
 
         # Log activation
         self.logger.info(
@@ -521,6 +533,22 @@ class BaseAgent(EventHandler):
         )
 
         responses = await self.event_bus.publish(event)
+
+        # If handoff request is accepted, handle the state transfer
+        if responses and responses[0].success:
+            target_agent = responses[0].payload.get("accepting_agent")
+            if target_agent and self.conversation_manager and self.context:
+                await self.conversation_manager.transfer_context(
+                    session_id=self.context.session_id,
+                    from_agent=self.agent_id,
+                    to_agent=target_agent,
+                    handoff_metadata={
+                        "reason": reason,
+                        "handoff_type": handoff_type,
+                        "message_count": message_count,
+                    },
+                )
+
         return responses[0] if responses else None
 
     # Protected methods for subclasses to override
@@ -535,7 +563,14 @@ class BaseAgent(EventHandler):
 
     async def _save_conversation_state(self) -> None:
         """Save current conversation state for persistence."""
-        # Default implementation - subclasses can override
+        if self.context and self.conversation_manager:
+            success = await self.conversation_manager.save_context(self.context, force=True)
+            if success:
+                self.logger.info("conversation_state_saved", session_id=self.context.session_id)
+            else:
+                self.logger.error(
+                    "conversation_state_save_failed", session_id=self.context.session_id
+                )
 
     def _create_response_message(
         self,
@@ -654,6 +689,15 @@ class BaseAgent(EventHandler):
     def get_recent_activities(self, count: int = 10) -> List[AgentActivityEvent]:
         """Get recent activity events for this agent."""
         return self.activity_log[-count:] if self.activity_log else []
+
+    async def load_conversation_state(self, session_id: str) -> Optional[ConversationContext]:
+        """Load conversation state from persistence."""
+        if self.conversation_manager:
+            context = await self.conversation_manager.get_context(session_id)
+            if context:
+                self.logger.info("conversation_state_loaded", session_id=session_id)
+            return context
+        return None
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}({self.agent_id}, {self.personality.name}, {self.status.value})>"

@@ -69,10 +69,9 @@ class HandoffRequest(AgentEvent):
 
     event_type: Literal[EventType.REQUEST_HANDOFF] = Field(EventType.REQUEST_HANDOFF)
 
-    def __init__(self, sender_id: str, target_agent: str, **kwargs):
+    def __init__(self, sender_id: str, **kwargs):
         super().__init__(
             sender_id=sender_id,
-            target_agent=target_agent,
             event_type=EventType.REQUEST_HANDOFF,
             **kwargs,
         )
@@ -83,10 +82,9 @@ class HelpRequest(AgentEvent):
 
     event_type: Literal[EventType.REQUEST_HELP] = Field(EventType.REQUEST_HELP)
 
-    def __init__(self, sender_id: str, target_agent: str, **kwargs):
+    def __init__(self, sender_id: str, **kwargs):
         super().__init__(
             sender_id=sender_id,
-            target_agent=target_agent,
             event_type=EventType.REQUEST_HELP,
             **kwargs,
         )
@@ -108,7 +106,7 @@ class CorrectionReview(AgentEvent):
         EventType.REQUEST_CORRECTION_REVIEW
     )
 
-    def __init__(self, sender_id: str, target_agent: str = "professoressa_rossi", **kwargs):
+    def __init__(self, sender_id: str, target_agent: Optional[str] = None, **kwargs):
         super().__init__(
             sender_id=sender_id,
             target_agent=target_agent,
