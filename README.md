@@ -1,4 +1,4 @@
-# Italian Teacher Multi-Agent Framework
+# Italian Teacher Multi-Agent Framework - (Still in development)
 
 A sophisticated multi-agent AI system for personalized Italian language learning, featuring distinct AI personalities that collaborate to provide immersive, contextual language education.
 
