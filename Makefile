@@ -28,28 +28,28 @@ setup:
 
 # Testing and Quality
 test:
-	pytest tests/ -v
+	PYTHONPATH=src pytest tests/ -v
 
 test-unit:
-	pytest tests/unit/ -v -m "unit or not integration"
+	PYTHONPATH=src pytest tests/unit/ -v -m "unit or not integration"
 
 test-integration:
-	pytest tests/integration/ -v -m integration
+	PYTHONPATH=src pytest tests/integration/ -v -m integration
 
 test-fast:
-	pytest tests/ -v -m "not slow and not ml"
+	PYTHONPATH=src pytest tests/ -v -m "not slow and not ml"
 
 test-ml:
-	pytest tests/ -v --ml-tests -m ml
+	PYTHONPATH=src pytest tests/ -v --ml-tests -m ml
 
 test-cov:
-	pytest tests/ --cov=italian_teacher --cov-report=html --cov-report=term
+	PYTHONPATH=src pytest tests/ --cov=italian_teacher --cov-report=html --cov-report=term
 
 test-cov-unit:
-	pytest tests/unit/ --cov=italian_teacher --cov-report=html
+	PYTHONPATH=src pytest tests/unit/ --cov=italian_teacher --cov-report=html
 
 test-watch:
-	pytest tests/ -v --tb=short -x --lf
+	PYTHONPATH=src pytest tests/ -v --tb=short -x --lf
 
 # Code formatting
 format:

@@ -5,7 +5,6 @@ This module provides the event-driven communication infrastructure for agents
 to collaborate, request help, and coordinate conversations.
 """
 
-from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional, Set
@@ -13,6 +12,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 from typing_extensions import Literal
+
+from .interfaces.events import EventHandler
 
 
 class EventType(Enum):
@@ -116,29 +117,6 @@ class CorrectionReview(AgentEvent):
 
 
 # Event handler interface
-class EventHandler(ABC):
-    """Interface for objects that can handle agent events."""
-
-    @abstractmethod
-    async def handle_event(self, event: AgentEvent) -> Optional[AgentResponse]:
-        """
-        Handle an incoming agent event.
-
-        Args:
-            event: The event to handle
-
-        Returns:
-            Optional response to the event
-        """
-
-    @abstractmethod
-    def get_handled_event_types(self) -> Set[EventType]:
-        """
-        Get the event types this handler can process.
-
-        Returns:
-            Set of event types this handler supports
-        """
 
 
 class EventSubscription:

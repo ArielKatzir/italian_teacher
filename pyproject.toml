@@ -108,6 +108,7 @@ markers = [
     "slow: Slow running tests",
     "ml: Tests requiring ML models",
     "api: API tests",
+    "asyncio: Async tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

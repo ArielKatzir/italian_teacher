@@ -20,12 +20,19 @@ class AgentEventBus:
     Handles event routing, subscription management, and delivery to interested agents.
     """
 
-    def __init__(self):
+    def __init__(self, discovery_service=None):
         """Initialize the event bus."""
         self.subscriptions: Dict[EventType, List[EventSubscription]] = defaultdict(list)
         self.agents: Dict[str, EventHandler] = {}
         self.logger = get_agent_logger("event_bus", "EventBus")
-        self._delivery_timeout = 5.0  # seconds
+        self._delivery_timeout = 5.0  # seconds (Config override available)
+
+        # Discovery service for intelligent agent selection
+        self.discovery_service = discovery_service
+        if discovery_service is None:
+            from .agent_discovery import default_discovery_service
+
+            self.discovery_service = default_discovery_service
 
     async def subscribe(
         self, agent_id: str, event_types: Set[EventType], handler: EventHandler
@@ -121,18 +128,34 @@ class AgentEventBus:
         """Get handlers that should receive this event."""
         handlers = []
 
-        # Get subscriptions for this event type
-        subscriptions = self.subscriptions.get(event.event_type, [])
-
-        for subscription in subscriptions:
-            # If event has a target, only deliver to that agent
-            if event.target_agent:
+        # If event has a specific target, deliver only to that agent
+        if event.target_agent:
+            subscriptions = self.subscriptions.get(event.event_type, [])
+            for subscription in subscriptions:
                 if subscription.agent_id == event.target_agent:
                     handlers.append(subscription.handler)
-            else:
-                # Broadcast to all subscribers (except sender)
-                if subscription.agent_id != event.sender_id:
-                    handlers.append(subscription.handler)
+                    break
+
+            if not handlers:
+                self.logger.warning(
+                    "target_agent_not_found",
+                    event_id=event.id,
+                    target_agent=event.target_agent,
+                    event_type=event.event_type.value,
+                )
+
+        else:
+            # Use discovery service to find best agent(s)
+            handlers = await self._discover_target_handlers(event)
+
+            # Fallback to broadcast if discovery fails
+            if not handlers:
+                self.logger.warning(
+                    "discovery_failed_fallback_to_broadcast",
+                    event_id=event.id,
+                    event_type=event.event_type.value,
+                )
+                handlers = await self._get_broadcast_handlers(event)
 
         return handlers
 
@@ -215,3 +238,83 @@ class AgentEventBus:
         self.agents.clear()
 
         self.logger.info("event_bus_shutdown_complete")
+
+    async def _discover_target_handlers(self, event: AgentEvent) -> List[EventHandler]:
+        """Use discovery service to find the best handlers for an event."""
+        handlers = []
+
+        try:
+            # Extract event-specific parameters
+            kwargs = self._extract_discovery_params(event)
+
+            # Find the best agent using discovery service
+            best_agent = await self.discovery_service.find_best_agent(event.event_type, **kwargs)
+
+            if best_agent:
+                # Find the handler for the selected agent
+                subscriptions = self.subscriptions.get(event.event_type, [])
+                for subscription in subscriptions:
+                    if subscription.agent_id == best_agent.agent_id:
+                        handlers.append(subscription.handler)
+                        self.logger.info(
+                            "agent_selected_by_discovery",
+                            event_id=event.id,
+                            selected_agent=best_agent.agent_id,
+                            agent_type=best_agent.agent_type,
+                            event_type=event.event_type.value,
+                        )
+                        break
+
+                if not handlers:
+                    self.logger.warning(
+                        "selected_agent_not_subscribed",
+                        event_id=event.id,
+                        selected_agent=best_agent.agent_id,
+                        event_type=event.event_type.value,
+                    )
+
+        except Exception as e:
+            self.logger.error(
+                "discovery_service_error",
+                event_id=event.id,
+                event_type=event.event_type.value,
+                error=str(e),
+            )
+
+        return handlers
+
+    async def _get_broadcast_handlers(self, event: AgentEvent) -> List[EventHandler]:
+        """Get all subscribed handlers for broadcast (except sender)."""
+        handlers = []
+        subscriptions = self.subscriptions.get(event.event_type, [])
+
+        for subscription in subscriptions:
+            if subscription.agent_id != event.sender_id:
+                handlers.append(subscription.handler)
+
+        return handlers
+
+    def _extract_discovery_params(self, event: AgentEvent) -> Dict[str, any]:
+        """Extract parameters from event for discovery service."""
+        kwargs = {}
+
+        # Extract common parameters from event payload
+        if hasattr(event, "payload") and event.payload:
+            # For help requests
+            if event.event_type == EventType.REQUEST_HELP:
+                kwargs["help_type"] = event.payload.get("help_type", "general")
+                kwargs["user_language_level"] = event.payload.get("user_language_level", "beginner")
+
+            # For handoff requests
+            elif event.event_type == EventType.REQUEST_HANDOFF:
+                kwargs["reason"] = event.payload.get("reason", "general")
+                kwargs["conversation_complexity"] = event.payload.get(
+                    "conversation_complexity", "medium"
+                )
+                kwargs["current_agent_type"] = event.payload.get("current_agent_type")
+
+            # For correction reviews
+            elif event.event_type == EventType.REQUEST_CORRECTION_REVIEW:
+                kwargs["correction_type"] = event.payload.get("correction_type", "general")
+
+        return kwargs

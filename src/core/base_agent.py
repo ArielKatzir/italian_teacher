@@ -14,7 +14,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, validator
 
-from .agent_events import AgentResponse, EventHandler, EventType
+from .agent_events import AgentResponse, EventType
+from .interfaces.events import EventHandler
 from .logging_config import get_agent_logger
 from .retention_policy import RetentionPreference, default_retention_manager
 
@@ -58,7 +59,7 @@ class AgentMessage:
     recipient_id: str = ""
     message_type: MessageType = MessageType.CONVERSATION
     content: str = ""
-    priority: int = 1  # 1-10, higher = more urgent
+    priority: int = 1  # 1-10, higher = more urgent (Config override available)
     timestamp: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -179,6 +180,7 @@ class BaseAgent(EventHandler):
         config: Optional[Dict[str, Any]] = None,
         event_bus: Optional["AgentEventBus"] = None,
         conversation_manager: Optional["ConversationStateManager"] = None,
+        agent_registry: Optional["AgentRegistry"] = None,
     ):
         """
         Initialize the base agent.
@@ -200,7 +202,7 @@ class BaseAgent(EventHandler):
         # Agent state
         self._is_initialized = False
         self._error_count = 0
-        self._max_errors = 5
+        self._max_errors = 5  # Config override available
 
         # Retention policy manager
         self.retention_manager = default_retention_manager
@@ -217,6 +219,17 @@ class BaseAgent(EventHandler):
             from .conversation_state import default_conversation_manager
 
             self.conversation_manager = default_conversation_manager
+
+        # Agent registry for discovery
+        self.agent_registry = agent_registry
+        if agent_registry is None:
+            from .agent_registry import default_agent_registry
+
+            self.agent_registry = default_agent_registry
+
+        # Registration info (will be set during registration)
+        self._registration = None
+        self._current_sessions = 0
 
     async def initialize(self) -> bool:
         """
@@ -243,6 +256,11 @@ class BaseAgent(EventHandler):
                     "subscribed_to_event_bus",
                     event_types=[et.value for et in self.get_handled_event_types()],
                 )
+
+            # Register with agent registry
+            if self.agent_registry:
+                await self._register_with_registry()
+                self.logger.info("registered_with_agent_registry")
 
             self._is_initialized = True
             self.status = AgentStatus.ACTIVE
@@ -378,7 +396,7 @@ class BaseAgent(EventHandler):
             self.context.last_interaction = datetime.now()
 
     def get_recent_messages(self, count: int = 10) -> List[AgentMessage]:
-        """Get recent messages from conversation history."""
+        """Get recent messages from conversation history (Config override available)."""
         if not self.context or not self.context.conversation_history:
             return []
         return self.context.conversation_history[-count:]
@@ -699,5 +717,99 @@ class BaseAgent(EventHandler):
             return context
         return None
 
+    async def start_session(self) -> None:
+        """Called when agent starts handling a new session."""
+        self._current_sessions += 1
+        if self.agent_registry:
+            from .agent_registry import AgentAvailability
+
+            await self.agent_registry.update_agent_status(
+                self.agent_id, AgentAvailability.AVAILABLE, session_count=self._current_sessions
+            )
+
+    async def end_session(self) -> None:
+        """Called when agent finishes handling a session."""
+        self._current_sessions = max(0, self._current_sessions - 1)
+        if self.agent_registry:
+            from .agent_registry import AgentAvailability
+
+            await self.agent_registry.update_agent_status(
+                self.agent_id, AgentAvailability.AVAILABLE, session_count=self._current_sessions
+            )
+
+    async def send_heartbeat(self) -> None:
+        """Send heartbeat to registry to indicate agent is alive."""
+        if self.agent_registry:
+            await self.agent_registry.heartbeat(self.agent_id)
+
+    def get_agent_capabilities(self):
+        """Get agent capabilities for registration. Subclasses should override."""
+        from .agent_registry import AgentAvailability, AgentCapabilities, AgentSpecialization
+
+        # Default capabilities - subclasses should override with specific specializations
+        return AgentCapabilities(
+            specializations={AgentSpecialization.CONVERSATION},
+            confidence_scores={AgentSpecialization.CONVERSATION: 0.7},
+            max_concurrent_sessions=5,
+            current_session_count=self._current_sessions,
+            availability=(
+                AgentAvailability.AVAILABLE
+                if self.is_available()
+                else AgentAvailability.UNAVAILABLE
+            ),
+        )
+
+    def get_agent_type(self) -> str:
+        """Get agent type identifier. Subclasses should override."""
+        return "base_agent"
+
+    async def _register_with_registry(self) -> None:
+        """Register this agent with the agent registry."""
+        from .agent_registry import AgentRegistration
+
+        capabilities = self.get_agent_capabilities()
+
+        registration = AgentRegistration(
+            agent_id=self.agent_id,
+            agent_name=self.personality.name,
+            agent_type=self.get_agent_type(),
+            capabilities=capabilities,
+        )
+
+        success = await self.agent_registry.register_agent(registration)
+        if success:
+            self._registration = registration
+            self.logger.info(
+                "agent_registered_successfully",
+                agent_type=registration.agent_type,
+                specializations=[spec.value for spec in capabilities.specializations],
+            )
+        else:
+            self.logger.error("agent_registration_failed")
+            raise RuntimeError(f"Failed to register agent {self.agent_id}")
+
+    async def _unregister_from_registry(self) -> None:
+        """Unregister this agent from the registry."""
+        if self.agent_registry:
+            success = await self.agent_registry.unregister_agent(self.agent_id)
+            if success:
+                self.logger.info("agent_unregistered_successfully")
+            else:
+                self.logger.warning("agent_unregistration_failed")
+
+    async def shutdown(self) -> None:
+        """Gracefully shutdown the agent."""
+        self.logger.info("agent_shutting_down")
+
+        # Deactivate if active
+        if self.status == AgentStatus.ACTIVE:
+            await self.deactivate()
+
+        # Unregister from registry
+        await self._unregister_from_registry()
+
+        self.status = AgentStatus.INACTIVE
+        self.logger.info("agent_shutdown_complete")
+
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}({self.agent_id}, {self.personality.name}, {self.status.value})>"
+        return f"<{self.__class__.__name__}({self.agent_id}, {self.personality.name}, {self.status.value}, sessions={self._current_sessions})>"

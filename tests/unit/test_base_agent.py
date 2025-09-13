@@ -34,6 +34,7 @@ class TestAgent(BaseAgent):
         config=None,
         event_bus=None,
         conversation_manager=None,
+        agent_registry=None,
     ):
         super().__init__(
             agent_id,
@@ -41,6 +42,7 @@ class TestAgent(BaseAgent):
             config,
             event_bus=event_bus,
             conversation_manager=conversation_manager,
+            agent_registry=agent_registry,
         )
         self.generate_response_mock = AsyncMock()
         self.can_handle_message_mock = Mock(return_value=0.8)

@@ -5,75 +5,11 @@ This module provides persistence and state management for conversation contexts,
 enabling seamless handoffs between agents and session recovery.
 """
 
-from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .base_agent import ConversationContext
-
-
-class ConversationStateStore(ABC):
-    """Abstract interface for conversation state persistence."""
-
-    @abstractmethod
-    async def save_context(self, context: ConversationContext) -> bool:
-        """
-        Save conversation context to persistent storage.
-
-        Args:
-            context: The conversation context to save
-
-        Returns:
-            True if save was successful, False otherwise
-        """
-
-    @abstractmethod
-    async def load_context(self, session_id: str) -> Optional[ConversationContext]:
-        """
-        Load conversation context from persistent storage.
-
-        Args:
-            session_id: The session ID to load
-
-        Returns:
-            ConversationContext if found, None otherwise
-        """
-
-    @abstractmethod
-    async def delete_context(self, session_id: str) -> bool:
-        """
-        Delete conversation context from persistent storage.
-
-        Args:
-            session_id: The session ID to delete
-
-        Returns:
-            True if deletion was successful, False otherwise
-        """
-
-    @abstractmethod
-    async def list_user_sessions(self, user_id: str) -> List[str]:
-        """
-        List all session IDs for a user.
-
-        Args:
-            user_id: The user ID to search for
-
-        Returns:
-            List of session IDs for the user
-        """
-
-    @abstractmethod
-    async def cleanup_expired_sessions(self, before_date: datetime) -> int:
-        """
-        Clean up sessions that expired before the given date.
-
-        Args:
-            before_date: Delete sessions last active before this date
-
-        Returns:
-            Number of sessions deleted
-        """
+from .interfaces.storage import ConversationStateStore
 
 
 class InMemoryConversationStore(ConversationStateStore):

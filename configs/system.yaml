@@ -1,0 +1,75 @@
+# Italian Teacher Core System Configuration
+# This file contains system-level configuration for thresholds, timeouts,
+# and operational parameters for the core agent registry and discovery system.
+
+system:
+  # Default values for agent capabilities
+  agent_defaults:
+    max_concurrent_sessions: 5
+    current_session_count: 0
+    average_response_time: 1.0  # seconds
+    success_rate: 0.95
+    user_satisfaction: 0.85
+  
+  # Agent operational limits
+  agent_limits:
+    max_errors: 5
+    recent_messages_count: 10
+    default_priority: 1
+  
+  # Default personality trait values
+  personality_defaults:
+    enthusiasm_level: 8
+    formality_level: 3
+    correction_frequency: 6
+    patience_level: 8
+    encouragement_frequency: 8
+  
+  # Agent registry configuration
+  registry:
+    heartbeat_timeout: 300      # seconds before agent considered stale
+    cleanup_timeout: 300        # timeout for cleanup operations
+    max_results: 10             # maximum agents returned in search
+  
+  # Scoring algorithm weights (must sum to 1.0)
+  scoring:
+    specialization: 0.4         # weight for specialization match
+    confidence: 0.3             # weight for confidence scores  
+    load: 0.2                   # weight for current load
+    performance: 0.1            # weight for performance metrics
+  
+  # Agent discovery service configuration
+  discovery:
+    max_help_candidates: 3      # max agents for help requests
+    max_handoff_candidates: 3   # max agents for handoffs
+    max_correction_candidates: 2 # max agents for corrections
+    
+    # Minimum confidence thresholds by user language level
+    confidence_thresholds:
+      beginner: 0.6             # more tolerant for beginners
+      intermediate: 0.7
+      advanced: 0.8             # higher standards for advanced
+      default: 0.7
+    
+    # Confidence thresholds by conversation complexity
+    complexity_thresholds:
+      simple: 0.6
+      medium: 0.7
+      complex: 0.8
+      default: 0.7
+  
+  # Event bus configuration
+  event_bus:
+    delivery_timeout: 5.0       # seconds for event delivery timeout
+  
+  # Data retention configuration (days)
+  retention:
+    immediate_cleanup_days: 0   # sensitive data (tokens, IPs)
+    quick_cleanup_days: 1       # detailed interaction data
+    conversation_cleanup_days: 7 # conversation content
+    monthly_cleanup_days: 30    # personal data
+    quarterly_cleanup_days: 90  # learning data  
+    semi_annual_cleanup_days: 180 # extended conversation context
+    annual_cleanup_days: 365    # preferences and logs
+    long_term_cleanup_days: 1095 # 3 years - long-term progress
+    final_cleanup_days: 2555    # 7 years - system logs
