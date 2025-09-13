@@ -150,6 +150,13 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [ ] Build scalable deployment architecture
 - [ ] Create load balancing for multi-agent system
 
+### 6.4 Natural Language Processing Enhancements
+- [ ] Replace keyword-based topic extraction with NLP models
+- [ ] Implement advanced intent recognition for better agent selection
+- [ ] Add semantic similarity analysis for conversation context
+- [ ] Integrate sentiment analysis for conversation flow optimization
+- [ ] Build multilingual topic classification (Italian/English)
+
 ## Phase 7: Testing & Validation (Weeks 25-28)
 
 ### 7.1 System Testing
