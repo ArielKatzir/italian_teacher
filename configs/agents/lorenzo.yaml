@@ -31,7 +31,7 @@ correction_style: "encouraging"
 enthusiasm_level: 9
 
 # Configurable parameters
-formality_level: 1  # 1-10 (very informal, street Italian)
+formality_level: 2  # 1-10 (very informal, street Italian)
 correction_frequency: 5  # 1-10 (moderate corrections, focuses on being understood)
 topic_focus:
   - "modern_slang"
