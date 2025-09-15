@@ -11,6 +11,9 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+# Import error types for detailed tracking
+from .error_tolerance import DetectedError, ErrorSeverity, ErrorType
+
 
 class MotivationLevel(Enum):
     """User's current motivation/energy state."""
@@ -25,10 +28,18 @@ class MotivationLevel(Enum):
 class ProgressMetrics:
     """Tracks user learning progress for motivation calculations."""
 
+    # Message-level tracking
     correct_responses: int = 0
     total_responses: int = 0
-    consecutive_correct: int = 0
     consecutive_incorrect: int = 0
+
+    # Individual error tracking
+    total_errors_detected: int = 0
+    errors_by_type: Dict[ErrorType, int] = field(default_factory=dict)
+    errors_by_severity: Dict[ErrorSeverity, int] = field(default_factory=dict)
+    recent_error_types: List[ErrorType] = field(default_factory=list)  # Last 10 errors
+
+    # Learning tracking
     topics_mastered: List[str] = field(default_factory=list)
     current_streak: int = 0
     best_streak: int = 0
@@ -55,7 +66,31 @@ class ProgressMetrics:
     @property
     def is_excelling(self) -> bool:
         """Detect if user is performing well."""
-        return self.consecutive_correct >= 3 or self.accuracy_rate > 80 or self.current_streak >= 5
+        return self.current_streak >= 3 or self.accuracy_rate > 80
+
+    @property
+    def error_rate(self) -> float:
+        """Calculate errors per message."""
+        if self.total_responses == 0:
+            return 0.0
+        return self.total_errors_detected / self.total_responses
+
+    @property
+    def most_common_error_type(self) -> Optional[ErrorType]:
+        """Get the most frequent error type."""
+        if not self.errors_by_type:
+            return None
+        return max(self.errors_by_type.items(), key=lambda x: x[1])[0]
+
+    @property
+    def needs_grammar_focus(self) -> bool:
+        """Detect if user needs grammar-focused help."""
+        grammar_errors = (
+            self.errors_by_type.get(ErrorType.GRAMMAR, 0)
+            + self.errors_by_type.get(ErrorType.VERB_CONJUGATION, 0)
+            + self.errors_by_type.get(ErrorType.GENDER_AGREEMENT, 0)
+        )
+        return grammar_errors > 3 or grammar_errors / max(1, self.total_errors_detected) > 0.4
 
 
 class MotivationContext:
@@ -85,7 +120,6 @@ class MotivationContext:
 
         if correct:
             self.progress_metrics.correct_responses += 1
-            self.progress_metrics.consecutive_correct += 1
             self.progress_metrics.consecutive_incorrect = 0
             self.progress_metrics.current_streak += 1
             self.progress_metrics.best_streak = max(
@@ -93,13 +127,74 @@ class MotivationContext:
             )
         else:
             self.progress_metrics.consecutive_incorrect += 1
-            self.progress_metrics.consecutive_correct = 0
             self.progress_metrics.current_streak = 0
             self.progress_metrics.mistakes_this_session += 1
 
         if topic and topic not in self.progress_metrics.topics_mastered:
             # Simple mastery detection - 3+ correct in a row for this topic
-            if correct and self.progress_metrics.consecutive_correct >= 4:
+            if correct and self.progress_metrics.current_streak >= 4:
+                self.progress_metrics.topics_mastered.append(topic)
+
+    def update_progress_with_errors(
+        self,
+        detected_errors: List[DetectedError],
+        topic: Optional[str] = None,
+        user_message: Optional[str] = None,
+    ) -> None:
+        """
+        Enhanced progress tracking that handles multiple errors per message.
+
+        This method provides detailed error analysis for educational use:
+        - Tracks individual errors by type and severity
+        - Calculates message-level success/failure
+        - Provides better analytics for schools
+
+        Args:
+            detected_errors: List of errors found in the user's message
+            topic: Current conversation topic (optional)
+            user_message: The user's original message (optional)
+        """
+        self.progress_metrics.total_responses += 1
+
+        # Track individual errors
+        error_count = len(detected_errors)
+        self.progress_metrics.total_errors_detected += error_count
+
+        # Update error tracking by type and severity
+        for error in detected_errors:
+            # Track by type
+            if error.error_type not in self.progress_metrics.errors_by_type:
+                self.progress_metrics.errors_by_type[error.error_type] = 0
+            self.progress_metrics.errors_by_type[error.error_type] += 1
+
+            # Track by severity
+            if error.severity not in self.progress_metrics.errors_by_severity:
+                self.progress_metrics.errors_by_severity[error.severity] = 0
+            self.progress_metrics.errors_by_severity[error.severity] += 1
+
+            # Keep recent error types (last 10)
+            self.progress_metrics.recent_error_types.append(error.error_type)
+            if len(self.progress_metrics.recent_error_types) > 10:
+                self.progress_metrics.recent_error_types.pop(0)
+
+        # Message-level success determination
+        message_correct = error_count == 0
+
+        if message_correct:
+            self.progress_metrics.correct_responses += 1
+            self.progress_metrics.consecutive_incorrect = 0
+            self.progress_metrics.current_streak += 1
+            self.progress_metrics.best_streak = max(
+                self.progress_metrics.best_streak, self.progress_metrics.current_streak
+            )
+        else:
+            self.progress_metrics.consecutive_incorrect += 1
+            self.progress_metrics.current_streak = 0
+            self.progress_metrics.mistakes_this_session += error_count  # Count individual errors
+
+        # Topic mastery tracking (requires error-free messages)
+        if topic and topic not in self.progress_metrics.topics_mastered:
+            if message_correct and self.progress_metrics.current_streak >= 4:
                 self.progress_metrics.topics_mastered.append(topic)
 
     def detect_motivation_level(self) -> MotivationLevel:
@@ -134,10 +229,12 @@ class MotivationContext:
         return {
             "user_metrics": {
                 "accuracy": round(self.progress_metrics.accuracy_rate, 1),
-                "consecutive_correct": self.progress_metrics.consecutive_correct,
                 "consecutive_incorrect": self.progress_metrics.consecutive_incorrect,
                 "current_streak": self.progress_metrics.current_streak,
                 "motivation_level": self.detect_motivation_level().value,
+                # NEW: Educational analytics
+                "error_rate": round(self.progress_metrics.error_rate, 2),
+                "total_errors": self.progress_metrics.total_errors_detected,
             },
             "session_info": {
                 "total_responses": self.progress_metrics.total_responses,
@@ -151,6 +248,27 @@ class MotivationContext:
                 in [MotivationLevel.LOW, MotivationLevel.FRUSTRATED],
                 "celebrating_success": self.progress_metrics.is_excelling,
                 "struggling": self.progress_metrics.is_struggling,
+                # NEW: Educational focus areas
+                "needs_grammar_focus": self.progress_metrics.needs_grammar_focus,
+            },
+            # NEW: Educational error analytics for schools
+            "educational_analytics": {
+                "common_error_type": (
+                    self.progress_metrics.most_common_error_type.value
+                    if self.progress_metrics.most_common_error_type
+                    else None
+                ),
+                "error_distribution": {
+                    error_type.value: count
+                    for error_type, count in self.progress_metrics.errors_by_type.items()
+                },
+                "severity_distribution": {
+                    severity.value: count
+                    for severity, count in self.progress_metrics.errors_by_severity.items()
+                },
+                "recent_error_pattern": [
+                    error_type.value for error_type in self.progress_metrics.recent_error_types[-5:]
+                ],
             },
         }
 

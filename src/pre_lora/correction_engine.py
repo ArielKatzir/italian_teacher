@@ -9,7 +9,8 @@ LoRA-based correction when that's implemented.
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..core.error_tolerance import DetectedError, ErrorSeverity, ErrorType
+from core.error_tolerance import DetectedError, ErrorSeverity, ErrorType
+
 from .italian_corrections import italian_corrections_db
 
 logger = logging.getLogger(__name__)

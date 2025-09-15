@@ -54,21 +54,33 @@ class MarcoAgent:
 
 ```
 src/
-├── core/                           # POST-LORA SYSTEMS (will remain)
-│   ├── motivation_context.py      # Lightweight metrics & context
-│   ├── error_tolerance.py         # Core framework with pluggable engines
-│   ├── base_agent.py              # Agent infrastructure
-│   └── ...                        # Other core systems
-├── pre_lora/                       # PRE-LORA SYSTEMS (will be removed)
-│   ├── motivation_system.py       # Template-based encouragement
-│   ├── correction_engine.py       # Rule-based error detection
-│   ├── italian_corrections.py     # 500+ error patterns & corrections
-│   └── ...                        # Other pre-LoRA logic
-├── prompts/                        # PROMPT ENGINEERING (will be simplified)
+├── core/                           # CORE FRAMEWORK (will remain post-LoRA)
+│   ├── motivation_context.py      # Lightweight motivation metrics & context
+│   ├── error_tolerance.py         # Error tolerance framework with pluggable engines
+│   ├── base_agent.py              # Agent base classes and infrastructure
+│   ├── coordinator.py             # Multi-agent coordination
+│   ├── agent_registry.py          # Agent discovery and selection
+│   ├── conversation_state.py      # Conversation state management
+│   └── event_bus.py               # Agent communication system
+│
+├── educational/                    # EDUCATIONAL DOMAIN (core will remain, templates removed)
+│   ├── service.py                 # Educational service orchestration
+│   ├── curriculum.py              # Learning paths and structured progression
+│   ├── validator.py               # Answer validation with rich feedback
+│   └── __init__.py               # Educational module interface
+│
+├── pre_lora/                       # PRE-LORA SYSTEMS (will be removed post-LoRA)
+│   ├── motivation_system.py       # Template-based encouragement responses
+│   ├── correction_engine.py       # Rule-based error detection and correction
+│   ├── italian_corrections.py     # 500+ error patterns & correction mappings
+│   └── educational_questions.py   # Template-based question generation
+│
+├── prompts/                        # PROMPT ENGINEERING (will be simplified post-LoRA)
 │   ├── marco_system_prompt.py     # Heavy personality instructions
 │   └── ...                        # Other agent prompts
-└── agents/                         # AGENT IMPLEMENTATIONS (will be updated)
-    ├── marco_agent.py              # Integrates pre-LoRA systems
+│
+└── agents/                         # AGENT IMPLEMENTATIONS (will be simplified post-LoRA)
+    ├── marco_agent.py              # Integrates educational and motivation systems
     └── ...                         # Other specialized agents
 ```
 
@@ -168,7 +180,139 @@ Input: "la problema è difficile" + Context: {user_level: "intermediate", error_
 Marco Response: "Capisco! 'Il problema' - è maschile. Non ti preoccupare, anche gli italiani sbagliano a volte!"
 ```
 
-### 3. System Prompt Engineering
+### 3. Educational Domain Systems (`src/educational/`)
+
+**Purpose**: Complete educational platform with structured learning paths, adaptive questioning, and comprehensive assessment
+
+#### 3.1. Educational Service (`educational/service.py`)
+
+**Core Integration Layer** - Orchestrates all educational functionality:
+
+```python
+class EducationalService:
+    # POST-LORA CORE - WILL REMAIN:
+    def __init__(self, motivation_context, error_tolerance, curriculum_manager, validator):
+        # Integrates with motivation tracking and error tolerance
+        self.motivation_context = motivation_context
+        self.curriculum_manager = curriculum_manager  # Learning progression
+        self.validator = validator                     # Rich answer validation
+
+    def start_learning_session(self, student_id, session_type):
+        # Creates adaptive learning sessions based on curriculum position
+
+    def process_answer(self, session_id, user_answer, agent_personality):
+        # Advanced validation with personality-driven feedback
+        # Updates motivation context with detailed error analysis
+        # Tracks curriculum progression and mastery
+```
+
+#### 3.2. Curriculum Management (`educational/curriculum.py`)
+
+**Structured Learning Progression** - CEFR-aligned learning paths:
+
+```python
+# 3 Complete Learning Paths:
+italian_beginner = LearningPath(    # A1-A2 CEFR
+    units=[
+        "Unit 1: Greetings & Basic Phrases",
+        "Unit 2: Essential Verbs (essere/avere)",
+        "Unit 3: Numbers & Time",
+        "Unit 4: Family & Descriptions",
+        "Unit 5: Food & Dining"
+    ]
+)
+
+italian_intermediate = LearningPath(  # B1-B2 CEFR
+    units=[
+        "Unit 6: Past Tenses (Passato Prossimo)",
+        "Unit 7: Travel & Transportation",
+        "Unit 8: Prepositions & Complex Grammar"
+    ]
+)
+
+italian_advanced = LearningPath(     # C1-C2 CEFR
+    units=[
+        "Unit 9: Subjunctive Mood",
+        "Unit 10: Cultural Mastery & Idioms"
+    ]
+)
+
+# Prerequisite tracking and automatic advancement
+def get_next_topics(student_id) -> List[LearningTopic]:
+    # Returns topics student should study next based on:
+    # - Current curriculum position
+    # - Completed prerequisites
+    # - Performance analytics
+```
+
+#### 3.3. Educational Validator (`educational/validator.py`)
+
+**Advanced Answer Assessment** - Rich feedback with personality integration:
+
+```python
+class EducationalValidator:
+    # POST-LORA CORE - WILL REMAIN:
+    def validate_answer(self, question, user_answer, student_context, agent_personality):
+        return ValidationResult(
+            is_correct=True/False,
+            score_percentage=85.0,
+            answer_quality=AnswerQuality.GOOD,  # EXCELLENT/GOOD/SATISFACTORY/POOR
+            primary_feedback="Bravissimo! Quasi perfetto!",
+            detailed_feedback=[
+                {"type": "encouragement", "message": "Fantastico! 🎉"},
+                {"type": "correction", "message": "Try: 'sono felice'"},
+                {"type": "grammar_tip", "message": "Remember: io sono, tu sei..."}
+            ],
+            suggestions=["Practice verb conjugation patterns"],
+            grammar_notes=["Essere conjugation varies by person"],
+            cultural_insights=["This expression shows Italian warmth"],
+            next_steps=["Ready for more challenging questions!"]
+        )
+```
+
+#### 3.4. Question Generation (`pre_lora/educational_questions.py`)
+
+**Template-Based Questions** - WILL BE REMOVED POST-LORA:
+
+```python
+# 500+ Question Templates across 20+ topics:
+question_templates = {
+    "greetings": {
+        "beginner": [
+            {
+                "type": QuestionType.FILL_IN_BLANK,
+                "template": "Complete: 'Buon______, come stai?'",
+                "answer": "giorno",
+                "explanation": "'Buongiorno' is used for 'good day/morning'",
+                "learning_objectives": ["Basic Italian greetings"]
+            }
+        ]
+    },
+    "grammar_verbs": {
+        "intermediate": [
+            {
+                "type": QuestionType.GRAMMAR_CORRECTION,
+                "template": "Correct: 'Ieri io ho essere al cinema.'",
+                "answer": "Ieri io sono stato/a al cinema.",
+                "explanation": "Use 'essere' with 'stato/a' for past location"
+            }
+        ]
+    }
+}
+
+# 8 Question Types: Fill-in-blank, Translation, Conversation, Multiple Choice,
+# Verb Conjugation, Grammar Correction, Vocabulary Match, Cultural Context
+```
+
+**Training Data Generation for LoRA:**
+```
+Educational Context: {curriculum_unit: "Unit_02_verbs", user_accuracy: 75%, motivation: "medium"}
+Question: "Conjugate 'essere' for 'io': Io ______ italiano."
+User Answer: "sono"
+Marco Response: "Perfetto! 'Io sono' - hai capito benissimo! Sei pronto per il prossimo livello?"
+```
+
+### 4. System Prompt Engineering
 
 **Current Approach:**
 ```python
@@ -316,16 +460,20 @@ benchmark_cases = [
 class MarcoAgentV2:
     def __init__(self, model: LoRAModel):
         self.model = model
-        self.context_builder = LightweightContextBuilder()  # Minimal context prep
-        self.metrics_tracker = MetricsTracker()             # Keep analytics
+        self.educational_service = LightweightEducationalService()  # Core framework only
+        self.context_builder = LightweightContextBuilder()         # Minimal context prep
 
     async def generate_response(self, message: str, context: ConversationContext) -> str:
-        # Simple context preparation (no templates!)
+        # Educational context from core systems (no templates!)
+        educational_context = self.educational_service.get_context_for_model()
+
+        # Simple context preparation
         lightweight_context = {
             "user_level": context.user_level,
-            "accuracy": self.metrics_tracker.get_accuracy(),
-            "recent_errors": self.metrics_tracker.get_recent_errors()[:3],
-            "motivation_level": self.metrics_tracker.detect_motivation_level()
+            "curriculum_position": educational_context["curriculum_position"],
+            "accuracy": educational_context["accuracy"],
+            "motivation_level": educational_context["motivation_level"],
+            "recent_error_patterns": educational_context["recent_errors"][:3]
         }
 
         # Model handles everything else naturally
@@ -334,55 +482,118 @@ class MarcoAgentV2:
 
 ### What Gets Removed
 
-**Template Systems** (60-70% of current code):
+**Template-Based Educational Systems** (from `pre_lora/`):
 ```python
-# REMOVED: Explicit template selection
-response_templates = {
-    "encouragement": ["Bravissimo!", "Perfetto!", "Fantastico!"],
-    "corrections": ["Quasi perfetto! Prova così: '{correction}'"]
+# REMOVED: Template-based question generation
+question_templates = {
+    "greetings": ["Complete: 'Buon______, come stai?'"],
+    "grammar": ["Correct: 'Ieri io ho essere al cinema.'"]
 }
 
-# REMOVED: Response assembly logic
-def combine_response_elements(encouragement, correction, conversation):
-    return f"{encouragement} {correction} {conversation}"
+# REMOVED: Template-based encouragement
+encouragement_templates = {
+    "correct": ["Bravissimo!", "Perfetto!", "Fantastico!"],
+    "incorrect": ["Non ti preoccupare!", "Proviamo insieme!"]
+}
 
-# REMOVED: Style-based generation
-def generate_marco_correction(error, style="gentle"):
-    if style == "gentle": return gentle_templates[random.choice(...)]
+# REMOVED: Rule-based error correction
+def generate_correction_response(error_type, style="gentle"):
+    templates = correction_templates[error_type][style]
+    return random.choice(templates).format(correction=correct_answer)
 ```
 
-**Complex Prompt Engineering**:
+**Template-Based Motivation System** (from `pre_lora/motivation_system.py`):
 ```python
-# REMOVED: 1000+ token system prompts with examples
-system_prompt = f"""
-You are Marco... [extensive personality description]
-Examples of responses:
-- User: "ciao" → Marco: "Ciao! Come va?"
+# REMOVED: Explicit response assembly
+class MotivationSystem:
+    def get_encouragement(self, trigger: MotivationalTrigger):
+        templates = ["Fantastico!", "Perfetto!", "Che bravo!"]
+        return random.choice(templates)
+
+    def combine_response_elements(self, encouragement, correction):
+        return f"{encouragement} {correction}"
+```
+
+**Complex Educational Prompt Engineering**:
+```python
+# REMOVED: 1000+ token educational system prompts
+educational_system_prompt = f"""
+You are Marco teaching Italian... [extensive educational instructions]
+
+Question Types:
+- Fill in blank: Ask "Complete: '____'"
+- Grammar: Ask "Correct this sentence"
+- Conversation: Respond naturally to...
+
+Educational Examples:
 - User: "io ho essere" → Marco: "Si dice 'sono'..."
-[hundreds of examples and rules]
+- User: "la problema" → Marco: "Il problema..."
+[hundreds of educational examples and rules]
+
+Assessment Rubrics:
+- Grammar errors: Correct gently with explanation
+- Vocabulary mistakes: Provide alternatives
+[detailed teaching instructions]
 """
 ```
 
 ### What Remains
 
-**Analytics & Context Systems** (30-40% of current code):
+**Educational Domain Core Framework** (`educational/`):
 ```python
-# REMAINS: Progress tracking
-class MetricsTracker:
-    def update_progress(self, correct: bool, topic: str): ...
-    def get_accuracy(self) -> float: ...
-    def detect_motivation_level(self) -> str: ...
+# REMAINS: Educational service orchestration (without templates)
+class EducationalService:
+    def start_learning_session(self, student_id, session_type): ...
+    def process_answer(self, session_id, user_answer): ...  # No templates
+    def get_curriculum_overview(self, student_id): ...
 
-# REMAINS: Error detection
-class ErrorDetector:
+# REMAINS: Curriculum management and learning paths
+class CurriculumManager:
+    def get_next_topics(self, student_id) -> List[LearningTopic]: ...
+    def check_topic_completion(self, student_id, topic): ...
+    def enroll_student(self, student_id, path_id): ...
+
+# REMAINS: Answer validation framework (core logic only)
+class EducationalValidator:
+    def validate_answer(self, question, answer, context): ...  # No templates
+    def assess_quality(self, score, analysis): ...
+    def _analyze_answer(self, question, answer): ...
+```
+
+**Core Framework Systems** (`core/`):
+```python
+# REMAINS: Motivation analytics and context
+class MotivationContext:
+    def update_progress_with_errors(self, detected_errors): ...
+    def detect_motivation_level(self) -> MotivationLevel: ...
+    def get_context_for_model(self) -> Dict[str, Any]: ...
+
+# REMAINS: Error tolerance framework
+class ErrorToleranceSystem:
+    def should_correct_error(self, error: DetectedError) -> bool: ...
     def detect_errors(self, text: str) -> List[DetectedError]: ...
-    def assess_severity(self, error: DetectedError) -> ErrorSeverity: ...
 
-# REMAINS: Configuration
-class AgentConfig:
-    correction_frequency: float = 0.7
-    patience_level: int = 8
-    cultural_sensitivity: bool = True
+# REMAINS: Agent infrastructure
+class BaseAgent:
+    def process_message(self, message: str): ...
+    def get_personality_config(self): ...
+```
+
+**Configuration & Analytics** (lightweight data structures):
+```python
+# REMAINS: Student profiles and progress tracking
+@dataclass
+class StudentProfile:
+    current_level: DifficultyLevel
+    topics_mastered: List[LearningTopic]
+    weak_areas: List[LearningTopic]
+
+# REMAINS: Educational configuration
+@dataclass
+class EducationalConfig:
+    questions_per_session: int = 3
+    adaptive_questioning: bool = True
+    difficulty_auto_adjust: bool = True
 ```
 
 ## Migration Strategy
@@ -509,13 +720,31 @@ class AgentComparisonFramework:
 
 ### 2. **Training Data Quality**
 - Personality-consistent examples
-- Comprehensive scenario coverage
+- Comprehensive scenario coverage (500+ question templates)
+- Educational curriculum alignment (CEFR standards)
+- Multi-error tracking and detailed analytics
 - Validated behavioral patterns
 
-### 3. **Measurable Improvement**
+### 3. **Educational Excellence**
+- **Complete Learning Paths**: 3 CEFR-aligned curricula (A1-C2)
+- **Structured Progression**: 10 curriculum units with prerequisite tracking
+- **Advanced Assessment**: Rich feedback with 5 quality levels
+- **Multi-Error Analytics**: Individual error tracking by type and severity
+- **Adaptive Questioning**: Curriculum-based question selection
+- **School-Ready Features**: Student profiles, progress tracking, detailed reporting
+
+### 4. **Clean Architecture**
+- **Domain Separation**: Educational systems isolated from core framework
+- **Maintainable Code**: Clear module boundaries and responsibilities
+- **Testing Independence**: Educational domain can be tested separately
+- **Scalable Design**: Easy to add new educational features
+- **Import Clarity**: `from educational.service import EducationalService`
+
+### 5. **Measurable Improvement**
 - Clear baselines for LoRA evaluation
 - Quantifiable personality consistency
 - A/B testing capabilities
+- Comprehensive educational analytics
 
 ### 4. **Systematic Evolution**
 - Planned obsolescence of scaffolding systems
@@ -529,14 +758,35 @@ class AgentComparisonFramework:
 
 ## Conclusion
 
-Our agent development pipeline transforms explicit rule-based intelligence into natural LoRA-trained behavior while maintaining personality consistency and learning effectiveness. By building scaffolding systems first, we ensure:
+Our agent development pipeline transforms explicit rule-based intelligence into natural LoRA-trained behavior while maintaining personality consistency and educational effectiveness. The comprehensive educational domain we've built provides:
 
-- **Immediate functionality** for early phases
-- **High-quality training data** for LoRA fine-tuning
-- **Measurable benchmarks** for evaluation
-- **Smooth migration path** to simplified architecture
+### **Complete Educational Platform**
+- **500+ structured question templates** across 20+ learning topics
+- **3 CEFR-aligned learning paths** (A1-C2) with 10 curriculum units
+- **Advanced answer validation** with 5 quality levels and rich feedback
+- **Multi-error analytics** tracking individual mistakes by type and severity
+- **Adaptive curriculum progression** with prerequisite management
 
-This approach balances the need for working agents today with the goal of naturally intelligent agents tomorrow, ensuring Marco's authentic Italian personality shines through every stage of development.
+### **Clean, Maintainable Architecture**
+- **Domain separation**: Educational systems cleanly separated from core framework
+- **Template isolation**: All pre-LoRA templates contained in `pre_lora/` for easy removal
+- **Framework preservation**: Core educational logic remains post-LoRA in `educational/`
+- **Clear imports**: `from educational.service import EducationalService`
+
+### **School-Ready Implementation**
+- **Structured learning paths** with clear progression requirements
+- **Detailed student analytics** for teachers and administrators
+- **Assessment-friendly format** with comprehensive progress tracking
+- **Personality-driven feedback** maintaining Marco's authentic Italian warmth
+
+By building comprehensive scaffolding systems first, we ensure:
+
+- **Immediate educational functionality** for Phase 2 onwards
+- **High-quality training data** with educational context for LoRA fine-tuning
+- **Measurable benchmarks** for educational effectiveness evaluation
+- **Smooth migration path** to simplified, naturally intelligent architecture
+
+This approach balances the need for working educational agents today with the goal of naturally intelligent agents tomorrow, ensuring Marco's authentic Italian personality and educational expertise shine through every stage of development.
 
 ---
 

@@ -9,7 +9,7 @@ for future LoRA fine-tuning.
 import re
 from typing import Dict, List, Pattern, Tuple
 
-from ..core.error_tolerance import ErrorType
+from core.error_tolerance import ErrorType
 
 
 class ItalianCorrectionsDB:

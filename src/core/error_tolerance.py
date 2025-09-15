@@ -15,12 +15,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    pass
+    from .interfaces.error_correction import ErrorCorrectionEngine
 
 logger = logging.getLogger(__name__)
 
@@ -110,36 +110,6 @@ class ErrorToleranceConfig(BaseModel):
     cultural_sensitivity: bool = Field(default=True)
 
 
-class ErrorCorrectionEngine(Protocol):
-    """Protocol for error correction engines (pre-LoRA or LoRA-based)."""
-
-    def detect_errors(
-        self, text: str, context: Optional[Dict[str, Any]] = None
-    ) -> List[DetectedError]:
-        """Detect errors in text."""
-        ...
-
-    def generate_correction(
-        self, original_text: str, error_type: ErrorType, context: Dict[str, Any]
-    ) -> Tuple[str, str]:
-        """Generate correction with explanation."""
-        ...
-
-    def format_correction_for_agent(
-        self, corrected_text: str, explanation: str, style, context: Dict[str, Any]
-    ) -> str:
-        """Format correction text according to agent personality."""
-        ...
-
-    def generate_encouragement(self, error, context: Dict[str, Any]) -> str:
-        """Generate encouragement message."""
-        ...
-
-    def determine_emotional_tone(self, error, style) -> str:
-        """Determine appropriate emotional tone for the correction."""
-        ...
-
-
 class ErrorToleranceSystem:
     """
     Core error tolerance and correction system.
@@ -152,7 +122,7 @@ class ErrorToleranceSystem:
         self,
         agent_personality: Dict[str, Any],
         config: Optional[ErrorToleranceConfig] = None,
-        correction_engine: Optional[ErrorCorrectionEngine] = None,
+        correction_engine: Optional["ErrorCorrectionEngine"] = None,
     ):
 
         self.agent_personality = agent_personality
@@ -166,7 +136,7 @@ class ErrorToleranceSystem:
             self.correction_engine = correction_engine
         else:
             # Default to pre-LoRA, legacy engine
-            from ..pre_lora.correction_engine import pre_lora_engine
+            from pre_lora.correction_engine import pre_lora_engine
 
             self.correction_engine = pre_lora_engine
 
@@ -350,7 +320,7 @@ class ErrorToleranceSystem:
         self.config.patience_factor = max(0.1, min(2.0, patience_factor))
         self.config.correction_frequency = max(0.0, min(1.0, correction_frequency))
 
-    def switch_to_lora_engine(self, lora_engine: ErrorCorrectionEngine) -> None:
+    def switch_to_lora_engine(self, lora_engine: "ErrorCorrectionEngine") -> None:
         """Switch from pre-LoRA to LoRA-based correction engine."""
         logger.info("Switching to LoRA-based correction engine")
         self.correction_engine = lora_engine

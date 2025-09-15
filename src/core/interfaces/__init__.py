@@ -9,6 +9,7 @@ Available Interfaces:
 - ConversationStateStore: Conversation persistence
 - BaseAgent: Core agent behavior
 - EventHandler: Event processing
+- ErrorCorrectionEngine: Error detection and correction
 
 Example Usage:
     from core.interfaces import AgentRegistry
@@ -18,8 +19,9 @@ Example Usage:
             self.registry = registry
 """
 
+from .error_correction import ErrorCorrectionEngine
 from .events import EventHandler
 from .registry import AgentRegistry
 from .storage import ConversationStateStore
 
-__all__ = ["AgentRegistry", "ConversationStateStore", "EventHandler"]
+__all__ = ["AgentRegistry", "ConversationStateStore", "EventHandler", "ErrorCorrectionEngine"]
