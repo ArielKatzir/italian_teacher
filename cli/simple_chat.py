@@ -96,10 +96,8 @@ def select_model_for_environment():
         print("🧪 Using mock model for testing (config: configs/models/mock.yaml)")
         return create_model("mock")
     elif in_colab and gpu_available:
-        print(
-            "🏠 Using smaller model for local development (config: configs/models/llama3.2-3b.yaml)"
-        )
-        return create_model("llama3.2-3b", device="auto")
+        print("🚀 Using Mistral 7B for development (config: configs/models/mistral-7b.yaml)")
+        return create_model("mistral-7b", device="auto")
     #     if gpu_memory >= 14:
     #         print("🔥 Using Llama 3.1 8B - excellent for Italian conversations")
     #         return create_model("llama3.1-8b", device="cuda", quantization="4bit")

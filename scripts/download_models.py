@@ -29,28 +29,31 @@ except ImportError:
     print("pip install huggingface_hub transformers torch")
     sys.exit(1)
 
-# Model configurations matching our YAML configs
+# Model configurations - accessible open source models (no gates!)
 MODELS = {
-    "llama3.2-3b": {
-        "repo_id": "meta-llama/Llama-3.2-3B-Instruct",
-        "description": "Llama 3.2 3B - Fast, good for development",
-        "size": "~6GB",
-        "memory_req": "~2GB with 4-bit quantization",
-        "license_url": "https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct",
+    "gemma-2b": {
+        "repo_id": "google/gemma-2b-it",
+        "description": "Google Gemma 2B - Very fast, good for development and testing",
+        "size": "~5GB",
+        "memory_req": "~1GB with 4-bit quantization",
+        "license_url": "https://huggingface.co/google/gemma-2b-it",
+        "gated": False,
     },
-    "llama3.1-8b": {
-        "repo_id": "meta-llama/Llama-3.1-8B-Instruct",
-        "description": "Llama 3.1 8B - Best quality/speed balance",
-        "size": "~16GB",
-        "memory_req": "~5GB with 4-bit quantization",
-        "license_url": "https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct",
+    "phi3-mini": {
+        "repo_id": "microsoft/Phi-3-mini-4k-instruct",
+        "description": "Microsoft Phi-3 3.8B - Excellent quality, no access restrictions",
+        "size": "~7GB",
+        "memory_req": "~2GB with 4-bit quantization",
+        "license_url": "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct",
+        "gated": False,
     },
     "mistral-7b": {
         "repo_id": "mistralai/Mistral-7B-Instruct-v0.3",
-        "description": "Mistral 7B - Efficient multilingual model",
+        "description": "Mistral 7B - Excellent multilingual, best quality",
         "size": "~14GB",
         "memory_req": "~4GB with 4-bit quantization",
         "license_url": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3",
+        "gated": False,
     },
 }
 
@@ -109,17 +112,13 @@ def download_model(model_key, force=False):
     print(f"  💾 Memory: {model_info['memory_req']}")
     print(f"  📝 Description: {model_info['description']}")
 
-    # Check for license acceptance (Meta models require this)
-    if "meta-llama" in repo_id:
-        print(f"\n⚠️  IMPORTANT: This Meta model requires license acceptance!")
+    # Check if model requires special access (these models are all open!)
+    if model_info.get("gated", False):
+        print(f"\n⚠️  This model may require license acceptance!")
         print(f"🔗 Please visit: {model_info['license_url']}")
-        print(f"📋 Click 'Agree and access repository' to accept the license")
-        print(f"🎯 Then you can download the model with your token")
-
-        proceed = input("\n✅ Have you accepted the license? (y/N): ").lower().strip()
-        if not proceed.startswith("y"):
-            print("❌ License acceptance required. Please visit the URL above first.")
-            return False
+        print(f"📋 Click 'Agree and access repository' if prompted")
+    else:
+        print(f"\n✅ This model is fully open source - no special permissions needed!")
 
     try:
         # Create cache directory

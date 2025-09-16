@@ -9,9 +9,9 @@
 ## Project Overview
 A sophisticated multi-agent AI system for personalized Italian language learning, featuring distinct AI personalities that collaborate to provide immersive, contextual language education.
 
-**Current Phase**: MVP Single Agent (Weeks 1-6) - Focus on Marco only
+**Current Phase**: Fine-Tuning Specialized Italian Teaching Model (Weeks 2-8) - **NEW PRIORITY**
 
-## Phase 1: MVP - Single Agent Italian Tutor (Weeks 1-6) - **CURRENT FOCUS**
+## Phase 1: MVP - Single Agent Italian Tutor (Weeks 1-2) - **COMPLETED BASELINE**
 
 ### 1.1 Core Foundation ✅ (COMPLETED - Already Built!)
 - [x] Project setup and development environment
@@ -24,39 +24,74 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [x] **Educational question system** (educational/ directory)
 - [x] **Testing framework** with comprehensive test suite
 
-### 1.2 Single Agent Implementation (IMMEDIATE PRIORITY - Use What You Built!)
-- [ ] **Create simple CLI entry point**: Use existing Marco agent directly
-- [ ] **Integrate basic LLM**: Connect Marco to OpenAI API or local Llama model
-- [ ] **Simplify coordinator usage**: Run Marco standalone without full coordination
-- [ ] **Test existing features**: Error correction, motivation, conversation flow
-- [ ] **Basic progress tracking**: Use existing session management
+### 1.2 Single Agent Implementation ✅ (COMPLETED BASELINE!)
+- [x] **Create simple CLI entry point**: CLI working with Mistral 7B model
+- [x] **Integrate basic LLM**: Mistral 7B successfully loaded and responding
+- [x] **Test existing features**: Marco personality, conversation flow working
+- [x] **Basic model selection**: Working fallback system with multiple models
+- [x] **Baseline validation**: System generates coherent Italian teaching responses
 
-### 1.3 User Validation & Testing (Week 4-6)
-- [ ] **Deploy working prototype**: Get something running that people can test
-- [ ] Test with 5-10 Italian students/learners for feedback
-- [ ] Measure engagement: session length, repeat usage, user satisfaction
-- [ ] Gather feature requests and pain points
-- [ ] Iterate based on real user feedback
+## Phase 2: Fine-Tuned Italian Teaching Model (Weeks 2-8) - **CURRENT PRIORITY**
 
-## Phase 2: Enhanced Single Agent (Weeks 7-10) - **BUILD ON SUCCESS**
+### 2.1 Data Collection & Dataset Creation (Weeks 2-3)
+- [ ] **Italian Teaching Conversation Dataset**: Collect authentic Italian teacher-student dialogues
+  - [ ] Educational YouTube channels, podcasts, language learning apps
+  - [ ] Italian language textbook conversations and exercises
+  - [ ] Online Italian tutoring session transcripts (with permission)
+  - [ ] Community forums and Q&A sites for Italian learners
+- [ ] **Marco Personality Dataset**: Create character-specific training data
+  - [ ] Encouraging, motivational Italian teacher responses
+  - [ ] Cultural context explanations and storytelling
+  - [ ] Error correction patterns with positive reinforcement
+  - [ ] Age-appropriate conversation starters and topics
+- [ ] **Multilingual Teaching Dataset**: Italian-English code-switching patterns
+  - [ ] Natural bilingual explanations and translations
+  - [ ] Cultural bridge-building conversations
+  - [ ] Grammar explanations in learner's native language
 
-### 2.1 Improve Core Marco Agent
-- [ ] **Unified LLM-based analysis**: Replace separate error detection, motivation assessment, and complexity analysis with single LLM call that handles all analysis + response generation (piggyback approach)
-- [ ] **Enhanced conversation memory**: Remember previous sessions and topics
-- [ ] **Better personality consistency**: Refine Marco's encouraging, friendly responses
-- [ ] **Implement homework help features**: Math word problems in Italian, reading comprehension
+### 2.2 LoRA Training Infrastructure (Weeks 3-4)
+- [ ] **Training Environment Setup**: Configure GPU training pipeline
+  - [ ] Set up Hugging Face PEFT library for LoRA training
+  - [ ] Configure training scripts for Mistral 7B base model
+  - [ ] Implement data preprocessing and tokenization pipeline
+  - [ ] Set up experiment tracking with weights & biases
+- [ ] **LoRA Configuration**: Optimize for Italian teaching specialization
+  - [ ] Configure LoRA rank and alpha for conversation tasks
+  - [ ] Set target modules for fine-tuning (attention, feed-forward)
+  - [ ] Implement gradient checkpointing for memory efficiency
+  - [ ] Configure training hyperparameters for conversational AI
 
-### 2.2 Basic Web Interface
-- [ ] **Simple web chat UI**: Move beyond CLI to browser-based interface
-- [ ] **Progress dashboard**: Show learning topics covered, session history
-- [ ] **Mobile responsive**: Works well on phones/tablets
-- [ ] **Share functionality**: Let users share interesting conversations
+### 2.3 Specialized Model Fine-Tuning (Weeks 4-6)
+- [ ] **Marco Teaching Model**: Train specialized Italian teaching LoRA adapter
+  - [ ] Fine-tune on Italian teaching conversation patterns
+  - [ ] Optimize for encouraging, patient, and motivational responses
+  - [ ] Train cultural context and storytelling capabilities
+  - [ ] Implement error correction with positive reinforcement
+- [ ] **Bilingual Capability Enhancement**: Improve Italian-English code-switching
+  - [ ] Train natural translation and explanation patterns
+  - [ ] Improve cultural bridge-building conversations
+  - [ ] Enhance grammar explanations in learner's language
+- [ ] **Conversation Flow Optimization**: Train natural dialogue patterns
+  - [ ] Optimize topic transitions and conversation starters
+  - [ ] Train question generation for practice exercises
+  - [ ] Improve response timing and conversational rhythm
 
-### 2.3 User Engagement & Retention
-- [ ] **Session analytics**: Track what keeps users coming back
-- [ ] **Difficulty adaptation**: Adjust conversation complexity based on user level
-- [ ] **Motivation system**: Encourage regular practice with streaks/achievements
-- [ ] **Parent dashboard**: Show progress to parents (if targeting students)
+### 2.4 Model Evaluation & Validation (Weeks 6-8)
+- [ ] **Automated Quality Assessment**: Quantitative model evaluation
+  - [ ] BLEU scores for translation accuracy
+  - [ ] Perplexity measurements for Italian fluency
+  - [ ] Response relevance and coherence metrics
+  - [ ] Cultural accuracy validation against reference data
+- [ ] **Human Evaluation**: Qualitative assessment with Italian speakers
+  - [ ] Native Italian speaker evaluation of responses
+  - [ ] Italian language teacher assessment of pedagogical quality
+  - [ ] Learner feedback on teaching effectiveness and engagement
+  - [ ] A/B testing against baseline Mistral 7B model
+- [ ] **Integration Testing**: Deploy fine-tuned model in existing system
+  - [ ] Replace baseline model with fine-tuned Marco model
+  - [ ] Test conversation flow and personality consistency
+  - [ ] Validate error correction and motivation systems
+  - [ ] Performance benchmarking and response time optimization
 
 ## Phase 3: Market Validation & Growth (Weeks 11-16) - **PROVE DEMAND**
 

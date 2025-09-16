@@ -3,7 +3,7 @@ model_name: "mistralai/Mistral-7B-Instruct-v0.3"
 model_type: "mistral"
 
 # Generation parameters
-max_tokens: 180
+max_tokens: 300
 temperature: 0.6  # Slightly lower for more focused responses
 top_p: 0.85
 
