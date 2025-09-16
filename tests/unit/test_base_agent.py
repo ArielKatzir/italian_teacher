@@ -7,7 +7,7 @@ including message handling, status management, and personality configuration.
 
 from datetime import datetime
 from typing import Optional, Set
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -24,7 +24,7 @@ from core.conversation_state import ConversationStateManager, InMemoryConversati
 
 
 # Test agent implementation for testing the abstract base class
-class TestAgent(BaseAgent):
+class ConcreteTestAgent(BaseAgent):
     """Concrete implementation of BaseAgent for testing."""
 
     def __init__(
@@ -45,17 +45,13 @@ class TestAgent(BaseAgent):
             agent_registry=agent_registry,
         )
         self.generate_response_mock = AsyncMock()
-        self.can_handle_message_mock = Mock(return_value=0.8)
 
     async def generate_response(
         self, user_message: str, context: Optional[ConversationContext] = None
     ) -> AgentMessage:
         return await self.generate_response_mock(user_message, context)
 
-    async def can_handle_message(
-        self, message: str, context: Optional[ConversationContext] = None
-    ) -> float:
-        return self.can_handle_message_mock(message, context)
+    # Removed can_handle_message - agents now trust LLM for message handling
 
     async def handle_event(self, event: AgentEvent) -> Optional[AgentResponse]:
         """Mock event handler for testing."""
@@ -100,7 +96,7 @@ def sample_context():
 @pytest.fixture
 def test_agent(sample_personality):
     """Create a test agent instance."""
-    return TestAgent("test_agent_1", sample_personality)
+    return ConcreteTestAgent("test_agent_1", sample_personality)
 
 
 @pytest.fixture
@@ -112,7 +108,7 @@ def conversation_manager():
 @pytest.fixture
 def test_agent_with_conversation_manager(sample_personality, conversation_manager):
     """Create a test agent with conversation state management."""
-    return TestAgent(
+    return ConcreteTestAgent(
         "test_agent_with_state", sample_personality, conversation_manager=conversation_manager
     )
 
@@ -321,7 +317,7 @@ class TestBaseAgent:
         assert recent[0].content == "Message 10"  # 5th most recent
 
         # Test with no context
-        empty_agent = TestAgent("empty", test_agent.personality)
+        empty_agent = ConcreteTestAgent("empty", test_agent.personality)
         assert empty_agent.get_recent_messages(10) == []
 
     def test_agent_availability(self, test_agent):
@@ -408,7 +404,7 @@ class TestBaseAgent:
     def test_agent_string_representation(self, test_agent):
         """Test agent string representation."""
         repr_str = repr(test_agent)
-        assert "TestAgent" in repr_str
+        assert "ConcreteTestAgent" in repr_str
         assert "test_agent_1" in repr_str
         assert "Test Agent" in repr_str
         assert "inactive" in repr_str
@@ -416,17 +412,14 @@ class TestBaseAgent:
     @pytest.mark.asyncio
     async def test_abstract_methods_implemented(self, test_agent):
         """Test that abstract methods are properly implemented in test agent."""
-        # These should not raise NotImplementedError
+        # Only generate_response is required now - can_handle_message removed
         await test_agent.generate_response("Hello")
-        await test_agent.can_handle_message("Hello")
-
         test_agent.generate_response_mock.assert_called_once()
-        test_agent.can_handle_message_mock.assert_called_once()
 
     def test_agent_with_custom_config(self, sample_personality):
         """Test agent creation with custom configuration."""
         custom_config = {"max_response_length": 200, "debug": True}
-        agent = TestAgent("custom_agent", sample_personality, custom_config)
+        agent = ConcreteTestAgent("custom_agent", sample_personality, custom_config)
 
         assert agent.config == custom_config
         assert agent.config["max_response_length"] == 200
@@ -445,7 +438,7 @@ class TestBaseAgentConversationState:
 
     def test_agent_with_default_conversation_manager(self, sample_personality):
         """Test that agent gets default conversation manager if none provided."""
-        agent = TestAgent("test_agent", sample_personality)
+        agent = ConcreteTestAgent("test_agent", sample_personality)
         assert agent.conversation_manager is not None
         # Should get the default instance
         from core.conversation_state import default_conversation_manager

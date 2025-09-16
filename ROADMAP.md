@@ -41,10 +41,10 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 ## Phase 2: Enhanced Single Agent (Weeks 7-10) - **BUILD ON SUCCESS**
 
 ### 2.1 Improve Core Marco Agent
-- [ ] **Add grammar correction capabilities**: Build on existing error tolerance system
-- [ ] **Implement homework help features**: Math word problems in Italian, reading comprehension
+- [ ] **Unified LLM-based analysis**: Replace separate error detection, motivation assessment, and complexity analysis with single LLM call that handles all analysis + response generation (piggyback approach)
 - [ ] **Enhanced conversation memory**: Remember previous sessions and topics
 - [ ] **Better personality consistency**: Refine Marco's encouraging, friendly responses
+- [ ] **Implement homework help features**: Math word problems in Italian, reading comprehension
 
 ### 2.2 Basic Web Interface
 - [ ] **Simple web chat UI**: Move beyond CLI to browser-based interface

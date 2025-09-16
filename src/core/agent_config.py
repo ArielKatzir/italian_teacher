@@ -33,7 +33,8 @@ class AgentConfigLoader:
             self.config_dir = Path(config_dir)
         else:
             # Default to configs directory in project root
-            self.config_dir = Path(__file__).parent.parent.parent.parent / "configs" / "agents"
+            # From src/core/agent_config.py -> italian_teacher/configs/agents
+            self.config_dir = Path(__file__).parent.parent.parent / "configs" / "agents"
 
         self.config_cache: Dict[str, AgentPersonality] = {}
 
@@ -103,8 +104,11 @@ class AgentConfigLoader:
     def _validate_and_create_personality(self, config_data: Dict[str, Any]) -> AgentPersonality:
         """Validate configuration data and create AgentPersonality object."""
         try:
+            # Convert YAML structure to AgentPersonality format
+            converted_data = self._convert_yaml_to_personality(config_data)
+
             # Pydantic handles all validation, defaults, and type checking
-            return AgentPersonality.model_validate(config_data)
+            return AgentPersonality.model_validate(converted_data)
         except ValidationError as e:
             # Convert Pydantic validation errors to our custom error type
             error_details = []
@@ -114,6 +118,50 @@ class AgentConfigLoader:
                 error_details.append(f"{field}: {message}")
 
             raise AgentConfigError(f"Invalid configuration: {'; '.join(error_details)}")
+
+    def _convert_yaml_to_personality(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert YAML config structure to AgentPersonality format."""
+        converted = config_data.copy()
+
+        # Handle topic_focus conversion (nested dict to flat list)
+        if "topic_focus" in config_data and isinstance(config_data["topic_focus"], dict):
+            topics = []
+            topic_focus = config_data["topic_focus"]
+
+            # Add primary topics
+            if "primary" in topic_focus:
+                topics.extend(topic_focus["primary"])
+
+            # Add secondary topics
+            if "secondary" in topic_focus:
+                topics.extend(topic_focus["secondary"])
+
+            converted["topic_focus"] = topics
+
+        # Extract simple values from nested structures
+        # Handle response_patterns (keep as dict, AgentPersonality expects this)
+        if "response_patterns" in config_data:
+            converted["response_patterns"] = config_data["response_patterns"]
+
+        # Handle cultural_knowledge (convert to dict if needed)
+        if "cultural_knowledge" in config_data:
+            cultural = config_data["cultural_knowledge"]
+            if isinstance(cultural, dict):
+                # Flatten cultural knowledge into a single dict
+                flattened_cultural = {}
+                for key, value in cultural.items():
+                    if isinstance(value, list):
+                        flattened_cultural[key] = value
+                    else:
+                        flattened_cultural[key] = str(value)
+                converted["cultural_knowledge"] = flattened_cultural
+
+        # Remove fields that AgentPersonality doesn't recognize
+        fields_to_remove = ["conversation_style", "teaching_approach", "behavioral_settings"]
+        for field in fields_to_remove:
+            converted.pop(field, None)
+
+        return converted
 
     def save_agent_personality(self, agent_name: str, personality: AgentPersonality) -> None:
         """

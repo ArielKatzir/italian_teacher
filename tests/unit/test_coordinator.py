@@ -297,7 +297,9 @@ class TestCoordinatorService:
         assert session.messages_exchanged == 1
         assert session.engagement_score > 0
         assert len(session.conversation_history) == 1
-        assert "food" in session.topics_covered  # Topic extraction should work
+        assert (
+            "conversation" in session.topics_covered
+        )  # Generic topic classification instead of pattern matching
 
     @pytest.mark.asyncio
     async def test_extract_topics(self, coordinator_service):
@@ -306,9 +308,8 @@ class TestCoordinatorService:
             "I want to learn about Italian food and travel"
         )
 
-        assert "food" in topics
-        assert "travel" in topics
-        assert len(topics) == 2
+        assert "conversation" in topics  # 9 words = conversation (3-10 words)
+        assert len(topics) == 1  # Now returns single topic category instead of multiple keywords
 
     @pytest.mark.asyncio
     async def test_get_session_status(self, coordinator_service):

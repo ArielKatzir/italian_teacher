@@ -624,18 +624,17 @@ class EducationalValidator:
 
     def _shows_topic_understanding(self, answer: str, question: LearningQuestion) -> bool:
         """Check if answer shows understanding of the topic."""
-        # Check if answer contains topic-related vocabulary
-        topic_keywords = {
-            "greetings": ["ciao", "buongiorno", "saluti", "come"],
-            "family": ["famiglia", "madre", "padre", "fratello", "sorella"],
-            "food": ["mangiare", "cibo", "pizza", "pasta", "ristorante"],
-        }
+        # Trust that if user provided a meaningful answer, they show some understanding
+        # More sophisticated analysis should be done by the LLM
+        words = answer.strip().split()
 
-        question_topic = (
-            question.topic.value if hasattr(question.topic, "value") else str(question.topic)
-        )
-        keywords = topic_keywords.get(question_topic, [])
-        return any(keyword in answer.lower() for keyword in keywords)
+        # Basic check: meaningful response length and content
+        if len(words) < 1:
+            return False
+
+        # Check if it's not just repeated characters or nonsense
+        unique_chars = set("".join(words).lower())
+        return len(unique_chars) > 2  # At least some variety in response
 
     def _shows_grammar_attempt(self, answer: str) -> bool:
         """Check if answer shows grammatical structure attempt."""

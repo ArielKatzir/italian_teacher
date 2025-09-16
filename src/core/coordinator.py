@@ -384,67 +384,17 @@ class CoordinatorService:
 
     async def _extract_topics(self, message: str) -> Set[str]:
         """Extract topics/themes from message."""
-        # Simple keyword extraction (could be enhanced with NLP)
-        # Support both English and Italian words
-        topic_keywords = {
-            "food": [
-                "cibo",
-                "mangiare",
-                "ristorante",
-                "pasta",
-                "pizza",
-                "food",
-                "eat",
-                "restaurant",
-                "cooking",
-                "meal",
-            ],
-            "travel": [
-                "viaggio",
-                "aeroporto",
-                "stazione",
-                "hotel",
-                "treno",
-                "travel",
-                "airport",
-                "station",
-                "hotel",
-                "train",
-                "trip",
-            ],
-            "family": [
-                "famiglia",
-                "madre",
-                "padre",
-                "fratello",
-                "sorella",
-                "family",
-                "mother",
-                "father",
-                "brother",
-                "sister",
-            ],
-            "work": [
-                "lavoro",
-                "ufficio",
-                "colleghi",
-                "riunione",
-                "work",
-                "office",
-                "colleagues",
-                "meeting",
-                "job",
-            ],
-        }
+        # Trust the LLM to handle topic extraction rather than pattern matching
+        # For now, return general conversation topic based on message complexity
+        # In the future, this could delegate to an LLM for sophisticated topic analysis
 
-        message_lower = message.lower()
-        found_topics = set()
-
-        for topic, keywords in topic_keywords.items():
-            if any(keyword in message_lower for keyword in keywords):
-                found_topics.add(topic)
-
-        return found_topics
+        # Basic heuristic based on message characteristics
+        if len(message.split()) > 10:
+            return {"detailed_conversation"}
+        elif len(message.split()) > 3:
+            return {"conversation"}
+        else:
+            return {"basic_interaction"}
 
     async def get_session_status(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get current session status and progress."""

@@ -355,20 +355,51 @@ class BaseAgent(EventHandler):
             AgentMessage with the agent's response
         """
 
-    @abstractmethod
-    async def can_handle_message(
-        self, message: str, context: Optional[ConversationContext] = None
-    ) -> float:
-        """
-        Determine if this agent can handle a given message.
+    # Removed can_handle_message abstract method - agents now trust LLM for message routing
 
-        Args:
-            message: The message to evaluate
-            context: Optional conversation context
+    # User level assessment methods (TODO Phase 2.3: Replace with LLM-based analysis)
 
-        Returns:
-            Confidence score 0.0-1.0 (higher = more confident)
+    def _update_user_level(self, message: str, progress_accuracy: float = 0.0) -> str:
         """
+        Update assessment of user's language level based on message complexity.
+
+        TODO Phase 2.3: Replace this simplistic heuristic with LLM-based complexity analysis
+        that understands actual language patterns, grammar usage, and vocabulary sophistication.
+        """
+        message_complexity = self._assess_message_complexity(message)
+
+        if message_complexity >= 0.8 and progress_accuracy >= 80:
+            return "advanced"
+        elif message_complexity >= 0.5 and progress_accuracy >= 60:
+            return "intermediate"
+        else:
+            return "beginner"
+
+    def _assess_message_complexity(self, message: str) -> float:
+        """
+        Simple complexity assessment based on message length and structure.
+
+        TODO Phase 2.3: This is a placeholder implementation with weird logic.
+        Should be replaced with LLM-based analysis that can:
+        - Understand actual vocabulary sophistication
+        - Analyze grammar complexity and sentence structure
+        - Consider language-specific patterns (Italian verb conjugations, etc.)
+        - Account for context and topic complexity
+        """
+        word_count = len(message.split())
+        char_count = len(message)
+
+        if word_count == 0:
+            return 0.0
+
+        # WARNING: Simplistic heuristics below - not linguistically sound
+        base_complexity = min(word_count / 20, 1.0)  # Arbitrary: 20 words = complex
+        char_density = char_count / max(word_count, 1)  # Average chars per word
+
+        # Assumes longer words = more complex (not always true)
+        complexity_bonus = min((char_density - 4) / 10, 0.3) if char_density > 4 else 0
+
+        return min(base_complexity + complexity_bonus, 1.0)
 
     # Event handling methods (from EventHandler interface)
 

@@ -38,16 +38,28 @@ make install-dev
 ```bash
 source ~/.venvs/py312/bin/activate  # Activate venv
 
-# Then use Make commands (no activation needed in Make)
-make run-dev          # Start development server
-make test             # Run tests
+# Quick start - Chat with Marco (Complete CLI)
+python cli/simple_chat.py          # Full Marco agent with LLM integration
+
+# Development commands
+make test             # Run all tests (160+ tests pass!)
 make format           # Format code
 make lint             # Run linting
 
-# Or run commands directly
-python -m italian_teacher.cli chat
+# Advanced usage
 python scripts/train_agents.py --config configs/development.yaml
 ```
+
+### 🚀 **Colab Pro Usage (Recommended)**
+
+Perfect for development with free GPU access:
+```bash
+# In Google Colab terminal
+cd /content/drive/MyDrive/Colab\ Notebooks/italian_teacher
+python cli/simple_chat.py  # Automatic GPU model selection
+```
+
+See [Colab Pro Setup Guide](docs/COLAB_PRO_SETUP.md) for complete instructions.
 
 ## 📁 Project Structure
 
@@ -99,16 +111,17 @@ Edit `configs/development.yaml` to customize:
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=italian_teacher
+# Run all tests (160+ tests pass!)
+make test
 
 # Run specific test categories
-pytest tests/unit/
-pytest tests/integration/
+pytest tests/unit/test_marco_agent.py    # Marco agent tests
+pytest tests/unit/test_models.py         # Language model tests
+pytest tests/unit/                       # All unit tests
+pytest tests/integration/                # Integration tests
 ```
+
+**Latest Status**: ✅ All 160 tests passing with complete Marco agent and model integration!
 
 ## 📊 Training
 

@@ -1,0 +1,30 @@
+# Mock Model Configuration (for testing)
+model_name: "mock-italian-model"
+model_type: "local"
+
+# Generation parameters (still used for response formatting)
+max_tokens: 100
+temperature: 0.7
+top_p: 0.9
+
+# Model-specific settings (ignored for mock)
+device: "cpu"
+quantization: null
+cache_dir: null
+
+# API settings (not needed for mock)
+api_key: null
+base_url: null
+
+# Italian-specific settings
+italian_system_prompt: true
+cultural_context: true
+
+# Additional metadata
+description: "Mock model for testing and development without GPU requirements"
+recommended_for:
+  - "development"
+  - "testing"
+  - "demo_purposes"
+memory_requirements: "Minimal"
+performance_notes: "Instant responses, no actual model loading required"
