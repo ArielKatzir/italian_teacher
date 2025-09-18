@@ -55,6 +55,21 @@ MODELS = {
         "license_url": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3",
         "gated": False,
     },
+    "qwen2.5-7b": {
+        "repo_id": "Qwen/Qwen2.5-7B-Instruct",
+        "description": "Qwen2.5 7B - Superior conversation performance, excellent for Italian teaching",
+        "size": "~14GB",
+        "memory_req": "~4GB with 4-bit quantization",
+        "license_url": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct",
+        "gated": False,
+        "recommended": True,
+        "features": [
+            "8K context",
+            "excellent multilingual",
+            "superior MT-Bench scores",
+            "role-playing optimized",
+        ],
+    },
 }
 
 
@@ -185,11 +200,14 @@ def main():
     if args.list:
         print("📋 Available models:")
         for key, info in MODELS.items():
-            print(f"\n🤖 {key}:")
+            recommended = "⭐ RECOMMENDED " if info.get("recommended") else ""
+            print(f"\n🤖 {recommended}{key}:")
             print(f"  📦 {info['repo_id']}")
             print(f"  📊 Size: {info['size']}")
             print(f"  💾 Memory: {info['memory_req']}")
             print(f"  📝 {info['description']}")
+            if info.get("features"):
+                print(f"  ✨ Features: {', '.join(info['features'])}")
         return
 
     print("🇮🇹 Italian Teacher - Model Download Script")
@@ -214,7 +232,8 @@ def main():
         # Interactive mode
         print("\n🤖 Available models:")
         for i, (key, info) in enumerate(MODELS.items(), 1):
-            print(f"  {i}. {key} - {info['description']} ({info['size']})")
+            recommended = "⭐ " if info.get("recommended") else "   "
+            print(f"{recommended}{i}. {key} - {info['description']} ({info['size']})")
 
         try:
             choice = input("\n🔽 Enter model number to download (or 'all'): ").strip()

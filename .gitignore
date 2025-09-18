@@ -125,6 +125,7 @@ lightning_logs/
 # Data files
 data/raw/
 data/processed/
+data/processed_llm_improved/
 *.csv
 *.tsv
 *.json.gz
