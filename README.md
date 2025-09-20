@@ -1,22 +1,29 @@
-# Italian Teacher Multi-Agent Framework - (Still in development)
+# Italian Teacher AI - Marco Language Tutor
 
-A sophisticated multi-agent AI system for personalized Italian language learning, featuring distinct AI personalities that collaborate to provide immersive, contextual language education.
+An AI-powered Italian language teaching system focused on conversational learning and personalized education. Currently implementing a specialized fine-tuned model (Marco) for Italian language instruction.
 
-## 🎭 Meet the Agents
+## 🎯 Current Status: Phase 2.2 - LoRA Fine-tuning
 
-- **Marco** - Friendly conversationalist who encourages speaking practice
-- **Professoressa Rossi** - Grammar expert who corrects mistakes and explains rules
-- **Nonna Giulia** - Cultural storyteller sharing idioms, traditions, and regional expressions
-- **Lorenzo** - Young Italian introducing slang, modern expressions, and pop culture
-- **Coordinator** - Manages conversations, tracks progress, and orchestrates agent interactions
+- ✅ **Dataset Complete**: 10,130 high-quality Italian teaching examples with LLM-enhanced grammar explanations
+- ✅ **Data Quality**: 92%+ success rate with Qwen2.5-3B grammar improvements
+- 🔄 **In Progress**: LoRA fine-tuning infrastructure for Qwen2.5-7B-Instruct
+- 🎯 **Next**: Specialized Marco teaching model deployment
+
+## 🧑‍🏫 Marco Agent
+
+**Marco** is our encouraging Italian teacher agent that provides:
+- Patient, supportive language instruction
+- Grammar explanations with cultural context
+- Personalized conversation practice
+- Question generation by CEFR level and topic
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.9+
-- GPU recommended for training (CPU works for inference)
+- GPU recommended for fine-tuning (Colab Pro with T4/A100)
 
-### Installation
+### Current Development Setup
 
 ```bash
 # Clone the repository
@@ -24,10 +31,11 @@ git clone <repository-url>
 cd italian_teacher
 
 # Create and activate virtual environment
-python -m venv ~/.venvs/py312  # or: python -m venv venv
-source ~/.venvs/py312/bin/activate  # or: source venv/bin/activate
+python -m venv ~/.venvs/py312
+source ~/.venvs/py312/bin/activate
 
 # Install dependencies
+pip install -r requirements.txt
 make install-dev
 # Or manually: pip install -e ".[dev,training,audio]"
 ```
@@ -65,17 +73,25 @@ See [Colab Pro Setup Guide](docs/COLAB_PRO_SETUP.md) for complete instructions.
 
 ```
 italian_teacher/
-├── src/italian_teacher/          # Main package
-│   ├── agents/                   # Individual agent implementations
-│   ├── core/                     # Core framework (BaseAgent, Coordinator)
-│   ├── data/                     # Data processing utilities
-│   ├── models/                   # ML model handling (LoRA adapters)
-│   └── utils/                    # Shared utilities
+├── src/
+│   ├── italian_teacher/          # Main package
+│   │   ├── agents/               # Individual agent implementations
+│   │   ├── core/                 # Core framework (BaseAgent, Coordinator)
+│   │   ├── data/                 # Data processing utilities
+│   │   └── utils/                # Shared utilities
+│   └── fine_tuning/              # LoRA training pipeline
+│       ├── lora_trainer.py       # Training implementation
+│       ├── config.py             # Training configuration
+│       ├── inference.py          # Model inference utilities
+│       └── data_preprocessing.py # Data preparation
+├── models/                       # Trained LoRA models
+│   ├── marco_lora_v1/           # v1 model (deprecated - poor quality)
+│   └── marco_lora_v2/           # v2 model (planned - high quality)
+├── data/                         # Training datasets
 ├── tests/                        # Test suites
 ├── configs/                      # Configuration files
-├── scripts/                      # Utility scripts
 ├── docs/                         # Documentation
-└── italian-teacher-roadmap.md    # Development roadmap
+└── ROADMAP.md                    # Development roadmap
 ```
 
 ## 🛠️ Development

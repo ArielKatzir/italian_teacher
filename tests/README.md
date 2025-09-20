@@ -1,6 +1,6 @@
 # Testing Framework
 
-This directory contains the comprehensive test suite for the Italian Teacher multi-agent framework.
+Comprehensive test suite for the Italian Teacher AI project.
 
 ## Test Structure
 

@@ -49,36 +49,135 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [x] **Scale Dataset**: 10K+ examples optimized for LoRA training
 - [x] **LLM Grammar Enhancement**: Used Qwen2.5-3B to improve 4,000+ grammar explanations (92%+ success rate)
 
-### 2.2 LoRA Training Infrastructure (Weeks 3-4) - **IN PROGRESS**
+### 2.2 LoRA Training Infrastructure (Weeks 3-4) - **MOSTLY COMPLETE** ✅
 - [x] **Base Model Selection**: Qwen2.5-7B-Instruct selected for superior conversation performance
 - [ ] **Training Environment Setup**: Configure GPU training pipeline (Colab Pro with T4/A100)
-- [ ] **Set up Hugging Face PEFT library** for LoRA training
-- [ ] **Configure training scripts** for Qwen2.5-7B base model
-- [ ] **Implement data preprocessing** and tokenization pipeline
-- [ ] **Set up experiment tracking** with weights & biases
-- [ ] **LoRA Configuration**: Optimize for Italian teaching specialization
-- [ ] **Configure LoRA rank and alpha** for conversation tasks
-- [ ] **Set target modules** for fine-tuning (attention, feed-forward)
-- [ ] **Implement gradient checkpointing** for memory efficiency
-- [ ] **Configure training hyperparameters** for conversational AI
+- [x] **Set up Hugging Face PEFT library** for LoRA training
+- [x] **Configure training scripts** for Qwen2.5-7B base model
+- [x] **Implement data preprocessing** and tokenization pipeline
+- [x] **Set up experiment tracking** with weights & biases
+- [x] **LoRA Configuration**: Optimize for Italian teaching specialization (r=16, alpha=32, 7 target modules)
+- [x] **Configure LoRA rank and alpha** for conversation tasks
+- [x] **Set target modules** for fine-tuning (q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj)
+- [x] **Implement gradient checkpointing** for memory efficiency
+- [x] **Configure training hyperparameters** for conversational AI
+- [x] **Inference utilities** for the trained model
 - [ ] **Question Generation Training**: Train model to generate practice questions by CEFR level, topic, and format
 
-### 2.3 Specialized Model Fine-Tuning (Weeks 4-6)
-- [ ] **Marco Teaching Model**: Train specialized Italian teaching LoRA adapter
-  - [ ] Fine-tune on Italian teaching conversation patterns
-  - [ ] Optimize for encouraging, patient, and motivational responses
-  - [ ] Train cultural context and storytelling capabilities
-  - [ ] Implement error correction with positive reinforcement
-- [ ] **Bilingual Capability Enhancement**: Improve Italian-English code-switching
-  - [ ] Train natural translation and explanation patterns
-  - [ ] Improve cultural bridge-building conversations
-  - [ ] Enhance grammar explanations in learner's language
-- [ ] **Conversation Flow Optimization**: Train natural dialogue patterns
-  - [ ] Optimize topic transitions and conversation starters
-  - [ ] Train question generation for practice exercises
-  - [ ] Improve response timing and conversational rhythm
+### 2.3 Specialized Model Fine-Tuning v1 (Weeks 4-6) - **COMPLETED** ✅
+- [x] **Marco Teaching Model v1**: Train specialized Italian teaching LoRA adapter
+  - [x] Fine-tune on Italian teaching conversation patterns (10,130 samples)
+  - [x] LoRA configuration: r=16, alpha=32, 7 target modules
+  - [x] Training: 3 epochs, L4 GPU optimized, 4-bit quantization (completed in ~3.5 hours)
+  - [x] Expected strengths: Grammar explanations, teaching tone
+- [x] **v1 Training Results**: **MAJOR ISSUES IDENTIFIED** ❌
+  - ❌ **Overfitting on templates**: Model learned formulaic responses ("Great question! This translates to...")
+  - ❌ **Poor teaching quality**: Incorrect grammar explanations, mismatched responses
+  - ❌ **Pattern matching artifacts**: Repetitive templates instead of natural teaching
+  - ❌ **Base model regression**: Fine-tuned model performs worse than base model
+  - ❌ **Training data quality issues**: Pattern-matching data corrupted learning
+- [x] **v1 Results Documentation**: Comprehensive evaluation completed
+  - [x] Training metrics: Loss decreased from 0.44 to 0.27, but poor quality responses
+  - [x] Base vs fine-tuned comparison: Base model significantly outperforms fine-tuned
+  - [x] Weaknesses identified: Template responses, incorrect explanations
+  - [x] Root cause: Low-quality training data with pattern-matching artifacts
+  - [x] **CONCLUSION**: Need complete training data rebuild before v2
 
-### 2.4 Model Evaluation & Validation (Weeks 6-8)
+### 2.4 Training Data Quality Rebuild (Weeks 6-9) - **CRITICAL NEXT PHASE** 🚨
+
+#### Phase 2.4.1: Improve Data Collection & Processing Pipeline
+- [ ] **Expand raw data sources** for better Italian teaching content
+  - [ ] Collect more authentic Italian teaching materials (textbooks, pedagogical resources)
+  - [ ] Find real teacher-student conversation transcripts
+  - [ ] Gather diverse Italian cultural content and contexts
+  - [ ] Source error correction examples and common learner mistakes
+- [ ] **Analyze existing processing pipeline** (`/data` processing code, Colab LLM generation)
+  - [ ] Review current data generation prompts for template-inducing patterns
+  - [ ] Identify pipeline steps that led to formulaic responses
+  - [ ] Document lessons learned from v1 data generation failures
+
+#### Phase 2.4.2: Enhanced Data Generation Pipeline
+- [ ] **Redesign LLM prompting strategies** to eliminate templates
+  - [ ] Create anti-template prompts that encourage natural variation
+  - [ ] Design prompts based on authentic Italian teaching methodologies
+  - [ ] Use few-shot examples from real Italian teachers (not synthetic templates)
+  - [ ] Implement prompt rotation to ensure response diversity
+- [ ] **Rebuild data generation from existing raw sources** (leverage `/data` pipeline)
+  - [ ] Reprocess Babbel content with improved prompts (avoid template responses)
+  - [ ] Regenerate Tatoeba conversations with natural teaching flow
+  - [ ] Recreate synthetic B1/B2 content with authentic pedagogy
+  - [ ] Target: 8,000-12,000 high-quality examples (quality over quantity)
+- [ ] **Implement real-time quality control during generation**
+  - [ ] Template detection algorithms during generation (reject templated responses)
+  - [ ] Educational accuracy validation with Italian grammar rules
+  - [ ] Response diversity metrics and automatic filtering
+  - [ ] Sample manual review during generation (not post-processing)
+
+#### Phase 2.4.3: Execute Full Data Regeneration
+- [ ] **Run improved data generation pipeline on all raw sources**
+  - [ ] Reprocess all `/data` sources with new prompts and quality control
+  - [ ] Generate diverse conversation types from existing raw materials:
+    - [ ] Grammar explanations (40%) - from Tatoeba and synthetic content
+    - [ ] Vocabulary teaching (25%) - from Babbel and dictionary sources
+    - [ ] Cultural context (15%) - from Italian cultural materials
+    - [ ] Practice exercises (15%) - from educational content
+    - [ ] Daily conversations (5%) - from conversational datasets
+- [ ] **Maintain CEFR distribution** during regeneration
+  - [ ] A1/A2: 40% (basics, simple explanations)
+  - [ ] B1/B2: 45% (intermediate, detailed grammar)
+  - [ ] C1/C2: 15% (advanced, nuanced explanations)
+- [ ] **Final dataset validation**
+  - [ ] Template detection scan on final dataset
+  - [ ] Educational accuracy spot-check (sample 200-300 examples)
+  - [ ] Response diversity metrics validation
+  - [ ] Ready for v2 training with confidence in quality
+
+### 2.5 Marco Teaching Model v2 (Weeks 9-11) - **REBUILD WITH QUALITY DATA**
+- [ ] **Train Marco v2 with high-quality dataset**
+  - [ ] Use rebuilt training data (8,000-12,000 quality examples)
+  - [ ] Same LoRA configuration: r=16, alpha=32, 7 target modules
+  - [ ] Monitor for template overfitting during training
+  - [ ] Implement early stopping if quality degrades
+- [ ] **Enhanced training monitoring**
+  - [ ] Track response diversity metrics during training
+  - [ ] Monitor for template pattern emergence
+  - [ ] Validate against base model throughout training
+  - [ ] Human evaluation at multiple checkpoints
+- [ ] **Comprehensive v2 evaluation**
+  - [ ] Base vs fine-tuned comparison (should show improvement)
+  - [ ] Template detection in responses
+  - [ ] Educational accuracy assessment
+  - [ ] Natural conversation flow evaluation
+  - [ ] Italian teaching effectiveness validation
+
+### 2.6 Data Enhancement for v3+ Training (Future Phase)
+- [ ] **Conversation Variety Enhancement**: Diversify beyond grammar
+  - [ ] Daily life scenarios and practical conversations
+  - [ ] Travel, food, family, work situation dialogues
+  - [ ] Regional Italian variations and expressions
+  - [ ] Informal vs formal register training
+- [ ] **Cultural Context Integration**: Rich Italian cultural content
+  - [ ] Historical context in language lessons
+  - [ ] Regional traditions and customs
+  - [ ] Italian literature, art, and cinema references
+  - [ ] Modern Italian society and current events
+- [ ] **Authentic Student Interaction Patterns**: Real learning scenarios
+  - [ ] Common learner mistakes and corrections
+  - [ ] Frustrated learner responses and encouragement
+  - [ ] Progress celebration and motivation
+  - [ ] Mixed-level group learning dynamics
+- [ ] **Advanced Error Correction Training**: Sophisticated mistake handling
+  - [ ] Gentle correction techniques with explanations
+  - [ ] Positive reinforcement after corrections
+  - [ ] Mistake pattern recognition and prevention
+  - [ ] Adaptive difficulty based on error frequency
+- [ ] **Multi-turn Conversation Training**: Natural dialogue flow
+  - [ ] Topic transitions and conversation starters
+  - [ ] Follow-up questions and deeper exploration
+  - [ ] Maintaining context across long conversations
+  - [ ] Personalized learning path conversations
+
+### 2.4 Model Evaluation & Validation v1 (Weeks 6-8)
 - [ ] **Automated Quality Assessment**: Quantitative model evaluation
   - [ ] BLEU scores for translation accuracy
   - [ ] Perplexity measurements for Italian fluency
@@ -94,6 +193,32 @@ A sophisticated multi-agent AI system for personalized Italian language learning
   - [ ] Test conversation flow and personality consistency
   - [ ] Validate error correction and motivation systems
   - [ ] Performance benchmarking and response time optimization
+
+## Phase 2.6: v1 Model Documentation & Archive (Post-Evaluation)
+
+### Training Configuration Archive
+- **Model**: Qwen2.5-7B-Instruct
+- **LoRA Config**: r=16, alpha=32, dropout=0.1
+- **Target Modules**: q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj
+- **Training Data**: 10,130 samples (processed_llm_improved dataset)
+- **Hardware**: T4/A100 with 4-bit quantization
+- **Training Settings**: 3 epochs, memory-optimized batch sizes
+
+### Results Documentation (To Be Completed)
+- [ ] **Training Metrics**: Loss curves, convergence analysis, training time
+- [ ] **Model Performance**: Base vs fine-tuned comparison across test cases
+- [ ] **Strength Analysis**: Grammar explanations, teaching tone, Italian fluency
+- [ ] **Weakness Analysis**: Cultural context, conversation variety, error correction
+- [ ] **CEFR Performance**: A1/A2/B1/B2 level appropriateness
+- [ ] **Use Case Validation**: Real Italian teaching scenarios
+- [ ] **Resource Usage**: GPU memory, training time, inference speed
+- [ ] **v2 Recommendations**: Specific data improvements needed
+
+### Model Versioning
+- [ ] **v1 Archive**: Save complete model, configs, and evaluation results
+- [ ] **Benchmark Baseline**: Establish performance benchmarks for v2 comparison
+- [ ] **Lessons Learned**: Document what worked and what didn't
+- [ ] **v2 Planning**: Detailed plan for next iteration improvements
 
 ## Phase 3: Teacher Analytics & Assessment Tools (Weeks 7-9) 🆕
 
