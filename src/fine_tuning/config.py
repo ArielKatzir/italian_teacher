@@ -86,15 +86,15 @@ class TrainingConfig:
 class DataConfig:
     """Data preprocessing configuration."""
 
-    # Data Paths
+    # Data Paths - Final authentic dataset: CIMA tutoring + CELI corpus + Italian conversations
     train_file: str = (
-        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/processed_llm_improved/train.jsonl"
+        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/processed/final_authentic_a1_c2/train.jsonl"
     )
     validation_file: str = (
-        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/processed_llm_improved/validation.jsonl"
+        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/processed/final_authentic_a1_c2/validation.jsonl"
     )
     test_file: str = (
-        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/processed_llm_improved/test.jsonl"
+        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/processed/final_authentic_a1_c2/test.jsonl"
     )
 
     # Preprocessing
