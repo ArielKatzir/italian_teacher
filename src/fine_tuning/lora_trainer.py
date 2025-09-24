@@ -169,7 +169,9 @@ class MarcoLoRATrainer:
             report_to="wandb" if self.config.experiment.use_wandb else None,
             # Hardware optimization
             fp16=True,  # Use mixed precision
-            dataloader_num_workers=2,
+            tf32=self.config.training.tf32,  # Enable TensorFloat-32 on Ampere GPUs
+            dataloader_num_workers=self.config.training.dataloader_num_workers,
+            ddp_find_unused_parameters=self.config.training.ddp_find_unused_parameters,
             # Reproducibility
             seed=self.config.training.data_seed,
         )
@@ -199,16 +201,15 @@ class MarcoLoRATrainer:
 
         logger.info("Weights & Biases initialized")
 
-    def train(self):
-        """Run the complete training pipeline."""
+    def start_training_only(self):
+        """Start training without re-running setup (for notebook use)."""
 
-        logger.info("Starting Marco LoRA training pipeline...")
+        if not hasattr(self, "model") or self.model is None:
+            raise ValueError("Model not loaded. Call setup_model_and_tokenizer() first.")
+        if not hasattr(self, "datasets") or self.datasets is None:
+            raise ValueError("Datasets not loaded. Call setup_data() first.")
 
-        # Setup components
-        self.setup_wandb()
-        self.setup_model_and_tokenizer()
-        self.setup_lora()
-        self.setup_data()
+        logger.info("🚀 Starting training with existing setup...")
 
         # Create training arguments
         training_args = self.setup_training_arguments()
@@ -224,27 +225,32 @@ class MarcoLoRATrainer:
         )
 
         # Start training
-        logger.info("🚀 Starting training...")
-
         try:
-            train_result = self.trainer.train(resume_from_checkpoint=True)
-
-            # Save final model
-            logger.info("💾 Saving final model...")
-            self.trainer.save_model()
-
-            # Log training summary
-            logger.info("✅ Training completed successfully!")
-            logger.info(f"Final train loss: {train_result.training_loss:.4f}")
-
-            if self.config.experiment.use_wandb:
-                wandb.finish()
-
+            train_result = self.trainer.train()
         except Exception as e:
-            logger.error(f"❌ Training failed: {e}")
-            if self.config.experiment.use_wandb:
-                wandb.finish(exit_code=1)
+            logger.error(f"Training failed: {e}")
             raise
+
+        # Save final model
+        logger.info("💾 Saving final model...")
+        self.trainer.save_model()
+
+        logger.info("✅ Training completed successfully!")
+        return train_result
+
+    def train(self):
+        """Run the complete training pipeline."""
+
+        logger.info("Starting Marco LoRA training pipeline...")
+
+        # Setup components
+        self.setup_wandb()
+        self.setup_model_and_tokenizer()
+        self.setup_lora()
+        self.setup_data()
+
+        # Start training
+        return self.start_training_only()
 
     def save_model(self, output_path: str):
         """Save the trained LoRA model."""

@@ -27,7 +27,9 @@ logger = logging.getLogger(__name__)
 class ConversationDataProcessor:
     """Processes conversation data for Italian teaching model training."""
 
-    def __init__(self, config: DataConfig, tokenizer_name: str = "Qwen/Qwen2.5-7B-Instruct"):
+    def __init__(
+        self, config: DataConfig, tokenizer_name: str = "sapienzanlp/Minerva-7B-base-v1.0"
+    ):
         self.config = config
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=True)
 
@@ -98,14 +100,32 @@ class ConversationDataProcessor:
         return True
 
     def format_conversation_for_training(self, conversation: List[Dict]) -> str:
-        """Format conversation using Qwen2.5 chat template."""
+        """Format conversation for training with fallback for models without chat templates."""
 
-        # Apply chat template
-        formatted = self.tokenizer.apply_chat_template(
-            conversation, tokenize=False, add_generation_prompt=False
-        )
+        # Try to use model's chat template if available
+        if hasattr(self.tokenizer, "chat_template") and self.tokenizer.chat_template is not None:
+            try:
+                formatted = self.tokenizer.apply_chat_template(
+                    conversation, tokenize=False, add_generation_prompt=False
+                )
+                return formatted
+            except Exception as e:
+                print(f"Chat template failed: {e}, falling back to simple format")
 
-        return formatted
+        # Fallback: Simple format for models without chat templates (like Minerva base)
+        formatted_parts = []
+        for msg in conversation:
+            role = msg["role"]
+            content = msg["content"]
+
+            if role == "user":
+                formatted_parts.append(f"### User:\n{content}\n")
+            elif role == "assistant":
+                formatted_parts.append(f"### Assistant:\n{content}\n")
+            elif role == "system":
+                formatted_parts.append(f"### System:\n{content}\n")
+
+        return "".join(formatted_parts)
 
     def tokenize_conversation(self, formatted_text: str) -> Dict[str, Any]:
         """Tokenize formatted conversation with proper attention mask."""

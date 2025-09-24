@@ -3,6 +3,7 @@
 Comprehensive guide to all training parameters used in Marco's Italian teaching model fine-tuning.
 
 ## Table of Contents
+- [Dual-LLM Training Strategy](#dual-llm-training-strategy)
 - [Training Schedule](#training-schedule)
 - [Optimization Parameters](#optimization-parameters)
 - [Memory Optimization](#memory-optimization)
@@ -11,6 +12,88 @@ Comprehensive guide to all training parameters used in Marco's Italian teaching 
 - [Experiment Tracking](#experiment-tracking)
 - [Hardware Optimization](#hardware-optimization)
 - [Reproducibility](#reproducibility)
+
+---
+
+## Dual-LLM Training Strategy
+
+### Overview: Generate with Qwen, Train on Minerva
+
+Starting with Marco v2, we implement a **dual-LLM approach** to avoid circular training problems and maximize training data quality.
+
+### The Problem with Single-LLM Approach (Marco v1)
+
+**What we did before**:
+- Used the same model (Qwen) to both generate training responses AND as the base for fine-tuning
+- Created synthetic training data where the model was essentially training on its own outputs
+- Generated template-based responses with pattern matching artifacts
+
+**Why it was problematic**:
+1. **Circular Training**: Model learns to mimic its own generation patterns rather than authentic teaching styles
+2. **Template Overfitting**: Responses became formulaic (e.g., "This A1-level text shows developing proficiency...")
+3. **Limited Diversity**: Same model architecture led to repetitive response structures
+4. **Echo Chamber Effect**: Model reinforced its own biases and limitations
+
+### The Solution: Dual-LLM Architecture
+
+**What we do now (Marco v2)**:
+
+#### Phase 1: Response Generation with Qwen
+- **Model**: Qwen/Qwen2.5-3B-Instruct
+- **Purpose**: Generate diverse, level-appropriate Italian teaching responses
+- **Input**: Authentic user questions from CELI, CIMA, and Tatoeba corpora
+- **Output**: 17,142 teaching responses covering A1-C2 levels
+- **Quality**: Level-specific prompts ensure appropriate complexity and teaching style
+
+#### Phase 2: LoRA Training on Minerva
+- **Model**: sapienzanlp/Minerva-3B-base-v1.0 (Italian-specialized)
+- **Purpose**: Fine-tune Italian language model for teaching conversations
+- **Input**: Qwen-generated responses paired with authentic user questions
+- **Output**: Marco v2 - Italian teaching specialist
+
+### Why This Approach Works
+
+1. **Cross-Model Diversity**: Qwen's generation style differs from Minerva's base architecture
+2. **Language Specialization**: Minerva has strong Italian foundations, Qwen provides teaching creativity
+3. **Authentic Data Foundation**: All user questions come from real learner corpora (CELI exams, CIMA tutoring)
+4. **No Template Artifacts**: Completely eliminated pattern-matching responses
+5. **Level Expertise**: Each CEFR level gets appropriate teaching approach
+
+### Implementation Details
+
+**Generation Stage (Qwen)**:
+```python
+# Level-specific prompt engineering
+level_approaches = {
+    "A1": "friendly, patient Italian teacher helping an absolute beginner",
+    "B2": "skilled Italian teacher helping an upper-intermediate student",
+    "C2": "master Italian teacher helping a near-native speaker"
+}
+
+# Dynamic generation parameters by level
+generation_params = {
+    "A1": {"max_new_tokens": 150, "temperature": 0.6},  # Shorter, focused
+    "C2": {"max_new_tokens": 300, "temperature": 0.8}   # Longer, sophisticated
+}
+```
+
+**Training Stage (Minerva)**:
+- Standard LoRA fine-tuning parameters (documented below)
+- Italian-optimized base model provides strong linguistic foundation
+- Cross-model training data prevents overfitting to generation patterns
+
+### Quality Metrics
+
+**Dataset Composition (17,913 total conversations)**:
+- **771 authentic responses** (4.3%) - preserved from CIMA human tutors
+- **17,142 generated responses** (95.7%) - created by Qwen with level-appropriate prompts
+- **0 template responses** - completely eliminated pattern matching
+
+**Level Distribution**:
+- A1: 4,000 (22.3%) | A2: 4,000 (22.3%) | B1: 3,501 (19.5%)
+- B2: 2,600 (14.5%) | C1: 2,600 (14.5%) | C2: 1,212 (6.8%)
+
+This dual-LLM strategy ensures Marco v2 learns from diverse, high-quality teaching examples while maintaining authentic Italian language patterns.
 
 ---
 

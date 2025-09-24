@@ -91,9 +91,9 @@ class TrainingConfig:
 class DataConfig:
     """Data preprocessing configuration."""
 
-    # Data Paths - Complete dataset with advanced C1/C2 template fixes applied
+    # Data Paths - v3 Clean GPT-4o Mini dataset (zero contamination)
     train_file: str = (
-        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/datasets/v3/clean_gpt4o_mini/train_complete_all_fixes.jsonl"
+        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/datasets/v3/clean_gpt4o_mini/train.jsonl"
     )
     validation_file: str = (
         "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/datasets/v3/clean_gpt4o_mini/validation.jsonl"
@@ -129,7 +129,7 @@ class ExperimentConfig:
     # Experiment Info
     experiment_name: str = "marco_minerva_lora_v3_clean"
     description: str = (
-        "LoRA fine-tuning of Minerva-7B with clean dataset (removed 26.5% contaminated German responses)"
+        "LoRA fine-tuning of Minerva-7B with v3 clean GPT-4o Mini dataset (17,913 conversations, zero contamination)"
     )
 
     def __post_init__(self):

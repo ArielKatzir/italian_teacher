@@ -20,7 +20,7 @@ class MarcoInference:
 
     def __init__(
         self,
-        base_model_name: str = "Qwen/Qwen2.5-7B-Instruct",
+        base_model_name: str = "sapienzanlp/Minerva-7B-base-v1.0",
         lora_adapter_path: Optional[str] = None,
         device: str = "auto",
     ):
@@ -94,10 +94,34 @@ class MarcoInference:
             Generated response text
         """
 
-        # Apply chat template
-        prompt = self.tokenizer.apply_chat_template(
-            conversation, tokenize=False, add_generation_prompt=True
-        )
+        # Apply chat template with fallback for models without chat templates
+        try:
+            if (
+                hasattr(self.tokenizer, "chat_template")
+                and self.tokenizer.chat_template is not None
+            ):
+                prompt = self.tokenizer.apply_chat_template(
+                    conversation, tokenize=False, add_generation_prompt=True
+                )
+            else:
+                raise ValueError("No chat template available")
+        except (ValueError, AttributeError):
+            # Fallback: Simple format for models without chat templates (like Minerva base)
+            prompt_parts = []
+            for msg in conversation:
+                role = msg["role"]
+                content = msg["content"]
+
+                if role == "user":
+                    prompt_parts.append(f"### User:\n{content}\n")
+                elif role == "assistant":
+                    prompt_parts.append(f"### Assistant:\n{content}\n")
+                elif role == "system":
+                    prompt_parts.append(f"### System:\n{content}\n")
+
+            # Add generation prompt
+            prompt_parts.append("### Assistant:\n")
+            prompt = "".join(prompt_parts)
 
         # Tokenize
         inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
