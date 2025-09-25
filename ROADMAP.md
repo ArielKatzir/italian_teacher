@@ -156,6 +156,29 @@ A sophisticated multi-agent AI system for personalized Italian language learning
   - [x] **Advanced level issue**: B2/C1/C2 prompts don't trigger sufficiently sophisticated responses
   - [x] **Template dominance**: Professional structure limits advanced level differentiation
 
+#### Phase 2.5.4: vLLM Inference Optimization ⏳ NEXT PRIORITY
+- [ ] **vLLM Integration for High-Performance Inference**
+  - [ ] **Install vLLM in Colab environment**: Setup optimized inference engine
+  - [ ] **Minerva model compatibility**: Test Marco v3 LoRA adapter with vLLM
+  - [ ] **Performance benchmarking**: Compare vLLM vs standard HF transformers inference
+  - [ ] **Memory optimization**: Configure batching and caching for Colab resource limits
+  - [ ] **Expected benefits**: 2-5x faster inference, better throughput, lower memory usage
+- [ ] **Advanced Inference Optimizations**
+  - [ ] **FlashAttention integration**: Enable automatic FlashAttention in vLLM for faster attention computation
+  - [ ] **KV caching optimization**: Configure vLLM's attention cache settings for memory efficiency
+  - [ ] **Continuous batching**: Implement vLLM's dynamic batching for multiple concurrent student sessions
+  - [ ] **Advanced quantization**: Add AWQ/GPTQ support alongside existing 4-bit quantization
+- [ ] **Colab Deployment Optimization**
+  - [ ] **Session persistence**: Setup model loading with vLLM for faster restarts
+  - [ ] **Resource monitoring**: Track GPU memory and inference speed improvements
+  - [ ] **Batch processing**: Optimize for multiple student conversations simultaneously
+  - [ ] **Integration with existing CLI**: Replace current inference pipeline with vLLM
+- [ ] **Production-Ready Inference Pipeline**
+  - [ ] **API wrapper**: Create FastAPI service around vLLM inference
+  - [ ] **Load balancing**: Handle multiple concurrent teaching sessions
+  - [ ] **Monitoring**: Add latency and throughput metrics
+  - [ ] **Fallback system**: Maintain HF transformers backup for compatibility
+
 ### 2.6 Marco Teaching Model v4 - CEFR-Conditioned Training (Future) - **📋 PLANNED**
 
 #### Phase 2.6.1: Advanced CEFR Level Dataset Creation
