@@ -156,153 +156,11 @@ A sophisticated multi-agent AI system for personalized Italian language learning
   - [x] **Advanced level issue**: B2/C1/C2 prompts don't trigger sufficiently sophisticated responses
   - [x] **Template dominance**: Professional structure limits advanced level differentiation
 
-#### Phase 2.5.4: vLLM Inference Optimization ⏳ NEXT PRIORITY
-- [ ] **vLLM Integration for High-Performance Inference**
-  - [ ] **Install vLLM in Colab environment**: Setup optimized inference engine
-  - [ ] **Minerva model compatibility**: Test Marco v3 LoRA adapter with vLLM
-  - [ ] **Performance benchmarking**: Compare vLLM vs standard HF transformers inference
-  - [ ] **Memory optimization**: Configure batching and caching for Colab resource limits
-  - [ ] **Expected benefits**: 2-5x faster inference, better throughput, lower memory usage
-- [ ] **Advanced Inference Optimizations**
-  - [ ] **FlashAttention integration**: Enable automatic FlashAttention in vLLM for faster attention computation
-  - [ ] **KV caching optimization**: Configure vLLM's attention cache settings for memory efficiency
-  - [ ] **Continuous batching**: Implement vLLM's dynamic batching for multiple concurrent student sessions
-  - [ ] **Advanced quantization**: Add AWQ/GPTQ support alongside existing 4-bit quantization
-- [ ] **Colab Deployment Optimization**
-  - [ ] **Session persistence**: Setup model loading with vLLM for faster restarts
-  - [ ] **Resource monitoring**: Track GPU memory and inference speed improvements
-  - [ ] **Batch processing**: Optimize for multiple student conversations simultaneously
-  - [ ] **Integration with existing CLI**: Replace current inference pipeline with vLLM
-- [ ] **Production-Ready Inference Pipeline**
-  - [ ] **API wrapper**: Create FastAPI service around vLLM inference
-  - [ ] **Load balancing**: Handle multiple concurrent teaching sessions
-  - [ ] **Monitoring**: Add latency and throughput metrics
-  - [ ] **Fallback system**: Maintain HF transformers backup for compatibility
-
-### 2.6 Marco Teaching Model v4 - CEFR-Conditioned Training (Future) - **📋 PLANNED**
-
-#### Phase 2.6.1: Advanced CEFR Level Dataset Creation
-- [ ] **Enhanced Training Data for Advanced Level Conditioning**
-  - [ ] **Issue identified**: v3 A1/A2 conditioning works well, B2/C1/C2 responses too similar
-  - [ ] **Focus on advanced levels**: Create dramatically different B2/C1/C2 response examples
-  - [ ] **Advanced prompting**: "You are Marco teaching near-native speakers" → expert linguistic analysis
-  - [ ] **Complexity amplification**: Ensure C2 responses include etymology, cultural depth, literary references
-  - [ ] **Response validation**: Verify B2+ responses show appropriate sophistication increase
-- [ ] **Dataset Restructuring for v4**
-  - [ ] **Prompt conditioning**: Add CEFR level instruction to all user messages
-  - [ ] **Response validation**: Verify appropriate complexity scaling A1→C2
-  - [ ] **Quality preservation**: Maintain v3's professional structure and zero contamination
-  - [ ] **Training size**: Target 17,913+ conversations with explicit level conditioning
-
-#### Phase 2.6.2: v4 LoRA Training with CEFR Conditioning
-- [ ] **Training Strategy**: Continue from v3 model (preserve learned knowledge)
-  - [ ] **Base model**: Use Marco v3 as starting point (NOT base Minerva)
-  - [ ] **Lower learning rate**: Preserve existing knowledge while adding level conditioning
-  - [ ] **Focused training**: Emphasize level-appropriate response generation
-  - [ ] **Expected outcome**: Retain v3 quality + gain CEFR level responsiveness
-- [ ] **Training Configuration for Level Conditioning**
-  - [ ] **Resume from**: Marco v3 checkpoint (incremental improvement)
-  - [ ] **Learning rate**: Reduced (1e-5 vs 2e-4) to preserve existing knowledge
-  - [ ] **Epochs**: 1-2 focused epochs on level conditioning
-  - [ ] **Validation**: Test explicit level response differentiation
-
-#### Phase 2.6.3: v4 Validation - Advanced CEFR Level Testing
-- [ ] **Advanced CEFR Level Response Testing**
-  - [ ] **A1/A2 validation**: Verify existing basic level conditioning remains strong
-  - [ ] **B2 validation**: "You are Marco helping upper-intermediate students" → sophisticated grammar analysis
-  - [ ] **C1 validation**: "You are Marco helping advanced students" → deep linguistic insights, cultural references
-  - [ ] **C2 validation**: "You are Marco helping near-native speakers" → expert etymology, literary context, theoretical frameworks
-  - [ ] **Level differentiation**: Ensure dramatic complexity differences between basic and advanced levels
-  - [ ] **Quality preservation**: Maintain v3's professional structure and zero contamination
-- [ ] **Production Deployment of v4**
-  - [ ] **CLI integration**: Deploy level-conditioned model
-  - [ ] **Documentation**: v4 CEFR conditioning capabilities
-  - [ ] **User guidance**: How to prompt for specific CEFR levels
-
-**🎯 v4 GOAL**: Enable role-based prompts to produce dramatically different response complexity across ALL levels
-
-**📝 v3 CEFR STATUS**:
-- ✅ **A1/A2 conditioning**: Works well with role-based prompts ("helping absolute beginners")
-- ⚠️ **B2/C1/C2 conditioning**: Responses too similar, need enhanced training for advanced sophistication
-- 🎯 **v4 focus**: Amplify advanced level differentiation while preserving basic level success
-
-**🎯 IMMEDIATE ACTION**: Start Marco v3 training with clean dataset - breakthrough quality expected!
-
-**📈 ITERATIVE FINE-TUNING STRATEGY**: Once v3 is complete, continue incremental improvements
-- **Marco v3**: Foundation model with clean dataset (17,913 conversations)
-- **Marco v4+**: Fine-tune v3 model with targeted enhancements (lower learning rate, focused datasets)
-- **Benefits**: Preserve learned knowledge, add specialized capabilities, faster training, lower risk
-- **Potential areas**: Advanced error correction, regional variations, cultural context, voice training
-
-### 2.6 Data Enhancement for v3+ Training (Future Phase)
-- [ ] **Conversation Variety Enhancement**: Diversify beyond grammar
-  - [ ] Daily life scenarios and practical conversations
-  - [ ] Travel, food, family, work situation dialogues
-  - [ ] Regional Italian variations and expressions
-  - [ ] Informal vs formal register training
-- [ ] **Cultural Context Integration**: Rich Italian cultural content
-  - [ ] Historical context in language lessons
-  - [ ] Regional traditions and customs
-  - [ ] Italian literature, art, and cinema references
-  - [ ] Modern Italian society and current events
-- [ ] **Authentic Student Interaction Patterns**: Real learning scenarios
-  - [ ] Common learner mistakes and corrections
-  - [ ] Frustrated learner responses and encouragement
-  - [ ] Progress celebration and motivation
-  - [ ] Mixed-level group learning dynamics
-- [ ] **Advanced Error Correction Training**: Sophisticated mistake handling
-  - [ ] Gentle correction techniques with explanations
-  - [ ] Positive reinforcement after corrections
-  - [ ] Mistake pattern recognition and prevention
-  - [ ] Adaptive difficulty based on error frequency
-- [ ] **Multi-turn Conversation Training**: Natural dialogue flow
-  - [ ] Topic transitions and conversation starters
-  - [ ] Follow-up questions and deeper exploration
-  - [ ] Maintaining context across long conversations
-  - [ ] Personalized learning path conversations
-
-### 2.4 Model Evaluation & Validation v1 (Weeks 6-8)
-- [ ] **Automated Quality Assessment**: Quantitative model evaluation
-  - [ ] BLEU scores for translation accuracy
-  - [ ] Perplexity measurements for Italian fluency
-  - [ ] Response relevance and coherence metrics
-  - [ ] Cultural accuracy validation against reference data
-- [ ] **Human Evaluation**: Qualitative assessment with Italian speakers
-  - [ ] Native Italian speaker evaluation of responses
-  - [ ] Italian language teacher assessment of pedagogical quality
-  - [ ] Learner feedback on teaching effectiveness and engagement
-  - [ ] A/B testing against baseline model
-- [ ] **Integration Testing**: Deploy fine-tuned model in existing system
-  - [ ] Replace baseline model with fine-tuned Marco model
-  - [ ] Test conversation flow and personality consistency
-  - [ ] Validate error correction and motivation systems
-  - [ ] Performance benchmarking and response time optimization
-
-## Phase 2.6: v1 Model Documentation & Archive (Post-Evaluation)
-
-### Training Configuration Archive
-- **Model**: Qwen2.5-7B-Instruct
-- **LoRA Config**: r=16, alpha=32, dropout=0.1
-- **Target Modules**: q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj
-- **Training Data**: 10,130 samples (processed_llm_improved dataset)
-- **Hardware**: T4/A100 with 4-bit quantization
-- **Training Settings**: 3 epochs, memory-optimized batch sizes
-
-### Results Documentation (To Be Completed)
-- [ ] **Training Metrics**: Loss curves, convergence analysis, training time
-- [ ] **Model Performance**: Base vs fine-tuned comparison across test cases
-- [ ] **Strength Analysis**: Grammar explanations, teaching tone, Italian fluency
-- [ ] **Weakness Analysis**: Cultural context, conversation variety, error correction
-- [ ] **CEFR Performance**: A1/A2/B1/B2 level appropriateness
-- [ ] **Use Case Validation**: Real Italian teaching scenarios
-- [ ] **Resource Usage**: GPU memory, training time, inference speed
-- [ ] **v2 Recommendations**: Specific data improvements needed
-
-### Model Versioning
-- [ ] **v1 Archive**: Save complete model, configs, and evaluation results
-- [ ] **Benchmark Baseline**: Establish performance benchmarks for v2 comparison
-- [ ] **Lessons Learned**: Document what worked and what didn't
-- [ ] **v2 Planning**: Detailed plan for next iteration improvements
+#### Phase 2.5.4: vLLM Inference Optimization ✅ COMPLETED
+- [x] **vLLM Integration**: Successfully implemented 4.4x speed improvement with vLLM
+- [x] **Performance benchmarking**: Achieved 88.2 vs 23.8 tokens/sec improvement
+- [x] **FlashAttention**: Automatic optimization in vLLM providing significant speedup
+- [x] **Production pipeline**: Ready for deployment with optimized inference
 
 ## Phase 3: Comprehensive Teaching Assistant Platform (Weeks 7-12) 🆕 **EXPANDED**
 
@@ -424,45 +282,108 @@ A sophisticated multi-agent AI system for personalized Italian language learning
   - [ ] LMS integration (Google Classroom, Canvas)
   - [ ] PDF generation and delivery services
 
-## Phase 4: Market Validation & Growth (Weeks 11-16) - **PROVE DEMAND**
+## Phase 4: Advanced Model Improvements (Weeks 7-12) - **OPTIMIZE AI CAPABILITIES**
 
-### 4.1 User Acquisition & Testing
-- [ ] **Launch beta program**: Get 20-50 active users trying the system
-- [ ] **Collect usage data**: Which features work? What causes dropoff?
-- [ ] **Interview users**: What would make them pay for this?
-- [ ] **Iterate on feedback**: Fix most common pain points
+### 4.1 Marco Teaching Model v4 - CEFR-Conditioned Training
 
-### 4.2 Monetization Experiments
-- [ ] **Freemium model**: Basic free, premium features ($5-15/month)
-- [ ] **Payment integration**: Stripe, subscription management
-- [ ] **Value proposition testing**: What benefits do users actually want?
-- [ ] **Pricing optimization**: Test different price points
+#### Phase 4.1.1: Advanced CEFR Level Dataset Creation
+- [ ] **Enhanced Training Data for Advanced Level Conditioning**
+  - [ ] **Issue identified**: v3 A1/A2 conditioning works well, B2/C1/C2 responses too similar
+  - [ ] **Focus on advanced levels**: Create dramatically different B2/C1/C2 response examples
+  - [ ] **Advanced prompting**: "You are Marco teaching near-native speakers" → expert linguistic analysis
+  - [ ] **Complexity amplification**: Ensure C2 responses include etymology, cultural depth, literary references
+  - [ ] **Response validation**: Verify B2+ responses show appropriate sophistication increase
+- [ ] **Dataset Restructuring for v4**
+  - [ ] **Prompt conditioning**: Add CEFR level instruction to all user messages
+  - [ ] **Response validation**: Verify appropriate complexity scaling A1→C2
+  - [ ] **Quality preservation**: Maintain v3's professional structure and zero contamination
+  - [ ] **Training size**: Target 17,913+ conversations with explicit level conditioning
 
-### 4.3 Product-Market Fit Validation
-- [ ] **Retention metrics**: Do users come back? How often?
-- [ ] **Word-of-mouth**: Are users recommending it to others?
-- [ ] **Learning outcomes**: Can you measure improvement in Italian skills?
-- [ ] **Competitive analysis**: How do you compare to existing tools?
+#### Phase 4.1.2: v4 LoRA Training with CEFR Conditioning
+- [ ] **Training Strategy**: Continue from v3 model (preserve learned knowledge)
+  - [ ] **Base model**: Use Marco v3 as starting point (NOT base Minerva)
+  - [ ] **Lower learning rate**: Preserve existing knowledge while adding level conditioning
+  - [ ] **Focused training**: Emphasize level-appropriate response generation
+  - [ ] **Expected outcome**: Retain v3 quality + gain CEFR level responsiveness
+- [ ] **Training Configuration for Level Conditioning**
+  - [ ] **Resume from**: Marco v3 checkpoint (incremental improvement)
+  - [ ] **Learning rate**: Reduced (1e-5 vs 2e-4) to preserve existing knowledge
+  - [ ] **Epochs**: 1-2 focused epochs on level conditioning
+  - [ ] **Validation**: Test explicit level response differentiation
 
-## Phase 5: Scale Single Agent (Weeks 17-22) - **OPTIMIZE WHAT WORKS**
+#### Phase 4.1.3: v4 Validation - Advanced CEFR Level Testing
+- [ ] **Advanced CEFR Level Response Testing**
+  - [ ] **A1/A2 validation**: Verify existing basic level conditioning remains strong
+  - [ ] **B2 validation**: "You are Marco helping upper-intermediate students" → sophisticated grammar analysis
+  - [ ] **C1 validation**: "You are Marco helping advanced students" → deep linguistic insights, cultural references
+  - [ ] **C2 validation**: "You are Marco helping near-native speakers" → expert etymology, literary context, theoretical frameworks
+  - [ ] **Level differentiation**: Ensure dramatic complexity differences between basic and advanced levels
+  - [ ] **Quality preservation**: Maintain v3's professional structure and zero contamination
 
-### 5.1 Performance & Quality Improvements
+### 4.2 Data Enhancement for Advanced Training
+- [ ] **Conversation Variety Enhancement**: Diversify beyond grammar
+  - [ ] Daily life scenarios and practical conversations
+  - [ ] Travel, food, family, work situation dialogues
+  - [ ] Regional Italian variations and expressions
+  - [ ] Informal vs formal register training
+- [ ] **Cultural Context Integration**: Rich Italian cultural content
+  - [ ] Historical context in language lessons
+  - [ ] Regional traditions and customs
+  - [ ] Italian literature, art, and cinema references
+  - [ ] Modern Italian society and current events
+- [ ] **Authentic Student Interaction Patterns**: Real learning scenarios
+  - [ ] Common learner mistakes and corrections
+  - [ ] Frustrated learner responses and encouragement
+  - [ ] Progress celebration and motivation
+  - [ ] Mixed-level group learning dynamics
+- [ ] **Advanced Error Correction Training**: Sophisticated mistake handling
+  - [ ] Gentle correction techniques with explanations
+  - [ ] Positive reinforcement after corrections
+  - [ ] Mistake pattern recognition and prevention
+  - [ ] Adaptive difficulty based on error frequency
+- [ ] **Multi-turn Conversation Training**: Natural dialogue flow
+  - [ ] Topic transitions and conversation starters
+  - [ ] Follow-up questions and deeper exploration
+  - [ ] Maintaining context across long conversations
+  - [ ] Personalized learning path conversations
+
+### 4.3 Model Evaluation & Advanced Validation
+- [ ] **Automated Quality Assessment**: Quantitative model evaluation
+  - [ ] BLEU scores for translation accuracy
+  - [ ] Perplexity measurements for Italian fluency
+  - [ ] Response relevance and coherence metrics
+  - [ ] Cultural accuracy validation against reference data
+- [ ] **Human Evaluation**: Qualitative assessment with Italian speakers
+  - [ ] Native Italian speaker evaluation of responses
+  - [ ] Italian language teacher assessment of pedagogical quality
+  - [ ] Learner feedback on teaching effectiveness and engagement
+  - [ ] A/B testing against baseline model
+- [ ] **Integration Testing**: Deploy fine-tuned model in existing system
+  - [ ] Replace baseline model with fine-tuned Marco model
+  - [ ] Test conversation flow and personality consistency
+  - [ ] Validate error correction and motivation systems
+  - [ ] Performance benchmarking and response time optimization
+
+## Phase 5: Market Validation & User Testing (Weeks 13-18) - **TEST WITH REAL USERS**
+
+### 5.1 User Testing & Feedback Collection
+- [ ] **Beta testing program**: Recruit Italian language learners for testing
+- [ ] **User feedback collection**: Structured feedback on teaching effectiveness
+- [ ] **Response quality validation**: Test conversation flow and engagement
+- [ ] **Learning outcome measurement**: Track student progress and satisfaction
+- [ ] **Performance benchmarking**: Test response times and system reliability
+
+### 5.2 Iterative Improvements (Based on User Feedback)
 - [ ] **Response quality**: Better conversation flow, more natural responses
 - [ ] **Faster response times**: Optimize model inference, caching
 - [ ] **Better Italian accuracy**: Improve grammar corrections, cultural context
 - [ ] **Personalization**: Adapt to individual learning styles and levels
 
-### 5.2 Advanced Features (Based on User Feedback)
-- [ ] **Voice integration**: Speech-to-text, text-to-speech if users want it
-- [ ] **Image support**: Help with homework photos, visual learning
-- [ ] **Homework assistance**: More subject areas, better explanations
-- [ ] **Progress tracking**: Detailed analytics on learning progress
-
 ---
 
 ## FUTURE PHASES - **ADVANCED FEATURES** (Only after proving single agent works)
 
-## Phase 6: Multi-Agent System (Weeks 23-32) - **COMPLEX COORDINATION**
+## Phase 6: Multi-Agent System (Weeks 19-28) - **COMPLEX COORDINATION**
 
 ### 6.1 Agent Personalities & Specialization ✅ (Foundation Ready!)
 - [x] **Core coordination infrastructure** (coordinator.py, agent_registry.py, event_bus.py)
@@ -490,7 +411,7 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [ ] Create dynamic difficulty adjustment algorithms
 - [ ] Build comprehensive evaluation metrics and testing suites
 
-## Phase 7: Advanced Features & Voice Integration (Weeks 33-40)
+## Phase 7: Advanced Features & Voice Integration (Weeks 29-36)
 
 ### 7.1 Voice & Audio Integration
 - [ ] Speech-to-text capabilities for pronunciation practice
@@ -504,7 +425,7 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [ ] LMS integration (Google Classroom, Canvas)
 - [ ] Privacy compliance (FERPA, COPPA, GDPR)
 
-## Phase 8: Advanced AI & Performance Optimization (Weeks 41-48)
+## Phase 8: Advanced AI & Performance Optimization (Weeks 37-44)
 
 ### 8.1 Advanced NLP Integration
 - [ ] Replace keyword-based systems with NLP models
@@ -518,7 +439,7 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [ ] Create load balancing for multi-agent system
 - [ ] Implement comprehensive monitoring and analytics
 
-## Phase 9: Production Deployment & Scale (Weeks 49-56) - **ONLY AFTER SUCCESS**
+## Phase 9: Production Deployment & Scale (Weeks 45-52) - **ONLY AFTER SUCCESS**
 
 ### 9.1 Production Infrastructure
 - [ ] Set up CI/CD pipeline and automated deployment
