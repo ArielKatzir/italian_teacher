@@ -55,6 +55,9 @@ test-watch:
 test-teacher:
 	PYTHONPATH=src pytest tests/unit/test_homework_assignment.py -v
 
+test-teacher-flow:
+	PYTHONPATH=src pytest tests/integration/test_teacher_student_flow.py -v
+
 # Code formatting
 format:
 	black src/ tests/ scripts/

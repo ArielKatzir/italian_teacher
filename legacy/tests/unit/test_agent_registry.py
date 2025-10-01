@@ -5,7 +5,6 @@ Tests for agent registry and discovery system.
 from datetime import datetime, timedelta
 
 import pytest
-
 from core.agent_discovery import AgentDiscoveryService
 from core.agent_events import EventType
 from core.agent_registry import (

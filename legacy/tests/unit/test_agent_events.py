@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Set
 
 import pytest
-
 from core.agent_events import (
     AgentEvent,
     AgentResponse,

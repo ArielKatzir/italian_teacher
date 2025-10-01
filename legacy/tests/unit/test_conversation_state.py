@@ -5,7 +5,6 @@ Tests for conversation state management system.
 from datetime import datetime, timedelta
 
 import pytest
-
 from core.base_agent import (
     AgentMessage,
     ConversationContext,

@@ -9,9 +9,9 @@ and works correctly with language models.
 from unittest.mock import patch
 
 import pytest
-
 from agents.marco_agent import MarcoAgent
 from core.base_agent import AgentPersonality, ConversationContext
+
 from models import MockLocalModel, ModelConfig, ModelType
 
 

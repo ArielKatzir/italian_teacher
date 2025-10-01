@@ -10,7 +10,6 @@ from typing import Optional, Set
 from unittest.mock import AsyncMock
 
 import pytest
-
 from core import (
     AgentMessage,
     AgentPersonality,

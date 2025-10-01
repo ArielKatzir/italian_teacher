@@ -9,7 +9,6 @@ from datetime import datetime
 from unittest.mock import AsyncMock
 
 import pytest
-
 from core.agent_discovery import AgentDiscoveryService
 from core.agent_events import AgentEvent, EventType
 from core.agent_registry import AgentCapabilities, AgentRegistration, AgentSpecialization

@@ -13,8 +13,6 @@ from typing import Any, Dict, List, Optional
 
 from core.error_tolerance import DetectedError, ErrorToleranceSystem
 from core.motivation_context import MotivationContext, MotivationLevel
-from educational.curriculum import CurriculumManager
-from educational.validator import educational_validator
 from pre_lora.educational_questions import (
     DifficultyLevel,
     LearningQuestion,
@@ -22,6 +20,9 @@ from pre_lora.educational_questions import (
     QuestionType,
     educational_question_engine,
 )
+
+from educational.curriculum import CurriculumManager
+from educational.validator import educational_validator
 
 
 class LearningSession(Enum):

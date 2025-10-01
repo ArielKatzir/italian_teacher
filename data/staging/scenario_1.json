@@ -1,0 +1,132 @@
+{
+  "students": {
+    "s001": {
+      "student_id": "s001",
+      "name": "Maria Rossi",
+      "cefr_level": "A2"
+    },
+    "s002": {
+      "student_id": "s002",
+      "name": "Giovanni Bianchi",
+      "cefr_level": "A2"
+    },
+    "s003": {
+      "student_id": "s003",
+      "name": "Lucia Verde",
+      "cefr_level": "A2"
+    }
+  },
+  "assignments": {
+    "s001_hw_20251001120146": {
+      "student_id": "s001",
+      "assignment_id": "hw_20251001120146",
+      "cefr_level": "A2",
+      "grammar_focus": "past_tense",
+      "topic": "history of Milan",
+      "num_exercises": 5,
+      "assigned_at": "2025-10-01T12:01:46.996230",
+      "status": "assigned",
+      "exercises": [
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        }
+      ]
+    },
+    "s002_hw_20251001120146": {
+      "student_id": "s002",
+      "assignment_id": "hw_20251001120146",
+      "cefr_level": "A2",
+      "grammar_focus": "past_tense",
+      "topic": "history of Milan",
+      "num_exercises": 5,
+      "assigned_at": "2025-10-01T12:01:46.996237",
+      "status": "assigned",
+      "exercises": [
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        }
+      ]
+    },
+    "s003_hw_20251001120146": {
+      "student_id": "s003",
+      "assignment_id": "hw_20251001120146",
+      "cefr_level": "A2",
+      "grammar_focus": "past_tense",
+      "topic": "history of Milan",
+      "num_exercises": 5,
+      "assigned_at": "2025-10-01T12:01:46.996242",
+      "status": "assigned",
+      "exercises": [
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        },
+        {
+          "type": "fill_in_blank",
+          "question": "Complete with past tense: Ieri io _____ (andare) a Milano. [history of Milan]",
+          "answer": "sono andato"
+        }
+      ]
+    }
+  }
+}

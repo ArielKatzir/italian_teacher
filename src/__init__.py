@@ -1,18 +1,23 @@
 """
-Italian Teacher Multi-Agent Framework
+Italian Teacher - Educational Homework System
 
-A sophisticated multi-agent AI system for personalized Italian language learning.
+A system for creating and managing Italian language homework assignments.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Italian Teacher Team"
 
-from .core.agent_config import load_agent_personality
-from .core.base_agent import AgentMessage, AgentPersonality, BaseAgent
+# Main exports for the homework system
+from .educational.teacher.assignment import (
+    CEFRLevel,
+    ExerciseType,
+    GrammarFocus,
+    HomeworkAssignment,
+)
 
 __all__ = [
-    "BaseAgent",
-    "AgentMessage",
-    "AgentPersonality",
-    "load_agent_personality",
+    "HomeworkAssignment",
+    "CEFRLevel",
+    "GrammarFocus",
+    "ExerciseType",
 ]

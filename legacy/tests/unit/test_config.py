@@ -2,9 +2,6 @@
 Unit tests for configuration handling.
 """
 
-import tempfile
-from pathlib import Path
-
 import pytest
 import yaml
 
