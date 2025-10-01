@@ -19,3 +19,4 @@ sqlalchemy>=2.0.0
 alembic>=1.11.0
 httpx>=0.24.0
 python-multipart>=0.0.6
+outlines>=0.0.46  # For guided generation and structured output

@@ -1,13 +1,14 @@
-# Italian Teacher AI - Marco Language Tutor
+# Italian Teacher AI - Marco Language Tutor (Still in development stages)
 
 An AI-powered Italian language teaching system focused on conversational learning and personalized education. Currently implementing a specialized fine-tuned model (Marco) for Italian language instruction.
 
-## 🎯 Current Status: Phase 2.2 - LoRA Fine-tuning
+## 🎯 Current Status: Phase 3 - Product Development (Ready for Production Focus!)
 
-- ✅ **Dataset Complete**: 10,130 high-quality Italian teaching examples with LLM-enhanced grammar explanations
-- ✅ **Data Quality**: 92%+ success rate with Qwen2.5-3B grammar improvements
-- 🔄 **In Progress**: LoRA fine-tuning infrastructure for Qwen2.5-7B-Instruct
-- 🎯 **Next**: Specialized Marco teaching model deployment
+- ✅ **Marco v3 Model**: Successfully fine-tuned Minerva-7B with Italian teaching specialization
+- ✅ **vLLM Optimization**: Achieved 4.4x speed improvement (4.21s → 0.95s) and 3.7x throughput increase
+- ✅ **Model Merging Infrastructure**: Complete CLI tool for PEFT/LoRA adapter merging
+- ✅ **Performance Optimization**: FlashAttention, KV caching, and continuous batching implemented
+- 🎯 **Next**: Comprehensive Teaching Assistant Platform development
 
 ## 🧑‍🏫 Marco Agent
 
@@ -21,9 +22,10 @@ An AI-powered Italian language teaching system focused on conversational learnin
 
 ### Prerequisites
 - Python 3.9+
-- GPU recommended for fine-tuning (Colab Pro with T4/A100)
+- GPU recommended for inference optimization (Colab Pro with L4/A100)
+- vLLM for production-grade inference (4.4x speed improvement)
 
-### Current Development Setup
+### Model Inference Setup
 
 ```bash
 # Clone the repository
@@ -36,8 +38,10 @@ source ~/.venvs/py312/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
-make install-dev
-# Or manually: pip install -e ".[dev,training,audio]"
+pip install vllm  # For optimized inference
+
+# Model merging (if needed)
+python src/fine_tuning/merge_models.py --base minerva --peft marco_v3
 ```
 
 ### Running the System
@@ -49,25 +53,32 @@ source ~/.venvs/py312/bin/activate  # Activate venv
 # Quick start - Chat with Marco (Complete CLI)
 python cli/simple_chat.py          # Full Marco agent with LLM integration
 
+# Optimized inference with vLLM (4.4x faster!)
+python src/inference/vllm_optimization_demo.ipynb  # Performance benchmarking
+
+# Model management
+python src/fine_tuning/merge_models.py --list-models  # List available models
+python src/fine_tuning/merge_models.py --base minerva --peft marco_v3  # Merge models
+
 # Development commands
 make test             # Run all tests (160+ tests pass!)
 make format           # Format code
 make lint             # Run linting
-
-# Advanced usage
-python scripts/train_agents.py --config configs/development.yaml
 ```
 
 ### 🚀 **Colab Pro Usage (Recommended)**
 
-Perfect for development with free GPU access:
+Perfect for development with GPU acceleration:
 ```bash
 # In Google Colab terminal
 cd /content/drive/MyDrive/Colab\ Notebooks/italian_teacher
-python cli/simple_chat.py  # Automatic GPU model selection
+
+# Use optimized inference
+pip install vllm
+python cli/simple_chat.py  # Automatic GPU model selection with vLLM
 ```
 
-See [Colab Pro Setup Guide](docs/COLAB_PRO_SETUP.md) for complete instructions.
+See performance benchmarking notebook: `src/inference/vllm_optimization_demo.ipynb`
 
 ## 📁 Project Structure
 
@@ -79,14 +90,16 @@ italian_teacher/
 │   │   ├── core/                 # Core framework (BaseAgent, Coordinator)
 │   │   ├── data/                 # Data processing utilities
 │   │   └── utils/                # Shared utilities
-│   └── fine_tuning/              # LoRA training pipeline
-│       ├── lora_trainer.py       # Training implementation
-│       ├── config.py             # Training configuration
-│       ├── inference.py          # Model inference utilities
-│       └── data_preprocessing.py # Data preparation
-├── models/                       # Trained LoRA models
-│   ├── marco_lora_v1/           # v1 model (deprecated - poor quality)
-│   └── marco_lora_v2/           # v2 model (planned - high quality)
+│   ├── fine_tuning/              # LoRA training pipeline
+│   │   ├── lora_trainer.py       # Training implementation
+│   │   ├── merge_models.py       # Model merging CLI tool
+│   │   ├── config.py             # Training configuration
+│   │   └── data_preprocessing.py # Data preparation
+│   └── inference/                # Optimized inference
+│       └── vllm_optimization_demo.ipynb # Performance benchmarking
+├── models/                       # Trained models and adapters
+│   ├── marco/v3/                # v3 LoRA adapter (production ready)
+│   └── minerva_marco_v3_merged/ # Merged model for vLLM inference
 ├── data/                         # Training datasets
 ├── tests/                        # Test suites
 ├── configs/                      # Configuration files
@@ -139,16 +152,23 @@ pytest tests/integration/                # Integration tests
 
 **Latest Status**: ✅ All 160 tests passing with complete Marco agent and model integration!
 
-## 📊 Training
+## 🚀 Performance & Optimization
 
-The system uses LoRA (Low-Rank Adaptation) fine-tuning to create specialized agent personalities:
+The system achieves production-ready performance through advanced optimizations:
 
-1. **Data Collection**: Gather Italian conversation data, social media, literature
-2. **Preprocessing**: Clean and format data for each agent personality
-3. **Training**: Fine-tune base models with agent-specific LoRA adapters
-4. **Evaluation**: Test conversation quality and learning effectiveness
+### vLLM Integration Results ✅
+- **4.4x Speed Improvement**: 4.21s → 0.95s response time
+- **3.7x Throughput Increase**: 23.8 → 88.2 tokens/second
+- **Memory Efficient**: FlashAttention + KV caching
+- **Production Ready**: Continuous batching for concurrent requests
 
-See `italian-teacher-roadmap.md` for detailed training procedures.
+### Model Training & Merging
+1. **LoRA Fine-tuning**: Specialized Marco v3 model on Minerva-7B base
+2. **Model Merging**: CLI tool for PEFT adapter integration
+3. **Inference Optimization**: vLLM deployment for production speeds
+4. **CEFR Conditioning**: Level-appropriate response generation (A1-C2)
+
+See `ROADMAP.md` for complete development phases and `src/inference/vllm_optimization_demo.ipynb` for benchmarking.
 
 ## 🏗️ Architecture
 
@@ -165,7 +185,11 @@ See `italian-teacher-roadmap.md` for detailed training procedures.
 
 ## 📋 Roadmap
 
-See [italian-teacher-roadmap.md](./docs/italian-teacher-roadmap.md) for the complete 32-week development plan.
+**Current Phase**: Phase 3 - Product Development
+**Next Phase**: Phase 4 - Advanced Model Improvements (CEFR v4 training)
+**After That**: Phase 5 - Market Validation & User Testing
+
+See [ROADMAP.md](./roadmap.md) for the complete development plan with reorganized priorities focusing on product development first.
 
 ## 🤝 Contributing
 

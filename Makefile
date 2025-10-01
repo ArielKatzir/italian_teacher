@@ -8,6 +8,7 @@ help:
 	@echo "  install      Install core dependencies"
 	@echo "  install-dev  Install with development dependencies"
 	@echo "  test         Run test suite"
+	@echo "  test-teacher Run teacher assignment tests"
 	@echo "  format       Format code with black and isort"
 	@echo "  lint         Run flake8 linter"
 	@echo "  type-check   Run mypy type checker"
@@ -50,6 +51,9 @@ test-cov-unit:
 
 test-watch:
 	PYTHONPATH=src pytest tests/ -v --tb=short -x --lf
+
+test-teacher:
+	PYTHONPATH=src pytest tests/unit/test_homework_assignment.py -v
 
 # Code formatting
 format:

@@ -156,7 +156,7 @@ A sophisticated multi-agent AI system for personalized Italian language learning
   - [x] **Advanced level issue**: B2/C1/C2 prompts don't trigger sufficiently sophisticated responses
   - [x] **Template dominance**: Professional structure limits advanced level differentiation
 
-#### Phase 2.5.4: vLLM Inference Optimization ✅ COMPLETED
+#### Phase 2.5.4: vLLM Inference Optimization Demo Notebook ✅ COMPLETED
 - [x] **vLLM Integration**: Successfully implemented 4.4x speed improvement with vLLM
 - [x] **Performance benchmarking**: Achieved 88.2 vs 23.8 tokens/sec improvement
 - [x] **FlashAttention**: Automatic optimization in vLLM providing significant speedup
@@ -180,6 +180,10 @@ A sophisticated multi-agent AI system for personalized Italian language learning
   - [ ] Individual student tracking and assignment delivery
   - [ ] Deadline management and reminder systems
   - [ ] Assignment customization per student needs
+- [ ] **LLM Processing Alternatives**
+  - [ ] If LLM can't fill parse properly into HomeworkAssignment in src/educational/teacher/command_processor.py/, fallback to  parsing
+  - [ ] Allow teacher to manually input data for HomeworkAssignment
+
 
 ### 3.2 Interactive Student Session Management
 - [ ] **Conversational Session Initiation**: Personalized lesson follow-up
