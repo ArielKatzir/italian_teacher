@@ -162,71 +162,40 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [x] **FlashAttention**: Automatic optimization in vLLM providing significant speedup
 - [x] **Production pipeline**: Ready for deployment with optimized inference
 
-## Phase 3: Comprehensive Teaching Assistant Platform (Weeks 7-12) 🆕 **EXPANDED**
+## Phase 3: Comprehensive Teaching Assistant Platform (Weeks 7-12) 🆕 **IN PROGRESS**
 
-### 3.1 Teacher Command Interface & Homework Assignment System
-- [ ] **Teacher Command Processing**: Natural language homework assignment
-  - [ ] Parse teacher instructions: "Marco, give homework for all students, level A2, past tense, about the history of Milan"
-  - [ ] Extract parameters: CEFR level, grammar focus, topic, student groups
-  - [ ] Validate assignment feasibility and generate appropriate exercises
-  - [ ] Store homework templates and teacher preferences for reuse
-- [ ] **Homework Generation Engine**: Create structured exercises from teacher specifications
-  - [ ] Level-appropriate content generation (A1-C2 CEFR alignment)
-  - [ ] Grammar-focused exercises (past tense, subjunctive, conditionals, etc.)
-  - [ ] Topic-specific content (history of Milan, Italian culture, daily life)
-  - [ ] Multiple exercise formats: fill-in-blank, translation, sentence completion
-  - [ ] Difficulty scaling within specified level
-- [ ] **Student Assignment Distribution**: Deliver homework to student interfaces
-  - [ ] Individual student tracking and assignment delivery
-  - [ ] Deadline management and reminder systems
-  - [ ] Assignment customization per student needs
-- [ ] **LLM Processing Alternatives**
-  - [ ] If LLM can't fill parse properly into HomeworkAssignment in src/educational/teacher/command_processor.py/, fallback to  parsing
-  - [ ] Allow teacher to manually input data for HomeworkAssignment
+### 3.1 Teacher API & Homework Assignment System ✅ **COMPLETED**
+- [x] **FastAPI Backend with SQLite Database**
+  - [x] ✅ FastAPI application ([src/api/main.py](src/api/main.py))
+  - [x] ✅ SQLAlchemy ORM with async support ([src/api/database.py](src/api/database.py))
+  - [x] ✅ Database schema: students, assignments, homework, assignment_students tables
+  - [x] ✅ CASCADE delete for foreign keys
+  - [x] ✅ Interactive API docs at `/docs` (Swagger UI)
+- [x] **Teacher API Endpoints** ([src/api/routes/teacher.py](src/api/routes/teacher.py))
+  - [x] ✅ `POST /api/teacher/students` - Create student
+  - [x] ✅ `GET /api/teacher/students` - List all students
+  - [x] ✅ `DELETE /api/teacher/students/{id}` - Delete student (with CASCADE)
+  - [x] ✅ `POST /api/teacher/assignments` - Create homework assignment
+  - [x] ✅ `GET /api/teacher/assignments` - List all assignments (includes student_ids)
+  - [x] ✅ `GET /api/teacher/assignments/{id}` - Get assignment details (includes student_ids)
+- [x] **Student API Endpoints** ([src/api/routes/student.py](src/api/routes/student.py))
+  - [x] ✅ `GET /api/student/{student_id}/homework` - Get available homework
+  - [x] ✅ `GET /api/student/{student_id}/homework/{homework_id}` - Get specific homework
+  - [x] ✅ Filter by status (available, in_progress, completed)
+- [x] **Background Homework Generation** ([src/api/services/homework_service.py](src/api/services/homework_service.py))
+  - [x] ✅ FastAPI BackgroundTasks for async generation
+  - [x] ✅ Status tracking: pending → generating → completed
+  - [x] ✅ Mock exercise generation (ready for MarcoInference integration)
+  - [x] ✅ Per-student homework generation
+  - [ ] **TODO**: Replace mock with real MarcoInference integration
+- [x] **Documentation & Testing**
+  - [x] ✅ Comprehensive API demo guide ([API_DEMO_GUIDE.md](API_DEMO_GUIDE.md))
+  - [x] ✅ Python demo script ([test_api_demo.py](test_api_demo.py))
+  - [x] ✅ Startup script ([run_api.sh](run_api.sh))
+  - [x] ✅ All 27 tests passing (18 unit + 9 integration)
 
 
-### 3.2 Interactive Student Session Management
-- [ ] **Conversational Session Initiation**: Personalized lesson follow-up
-  - [ ] Warm greeting and lesson recap: "How was today's lesson? What did you learn?"
-  - [ ] Student struggle detection and support: "Did you have any difficulties?"
-  - [ ] Motivation and encouragement based on previous performance
-  - [ ] Session context preservation from previous interactions
-- [ ] **Adaptive Homework Delivery**: Dynamic exercise presentation
-  - [ ] Interactive text boxes for sentence completion and answers
-  - [ ] Simple gamification elements (progress bars, points, encouragement)
-  - [ ] Real-time input validation and formatting assistance
-  - [ ] Progressive difficulty adjustment based on student responses
-- [ ] **Live Error Detection & Correction**: Intelligent assessment during exercises
-  - [ ] Real-time grammar and syntax analysis
-  - [ ] Context-aware error identification (semantic, grammatical, cultural)
-  - [ ] Gentle correction with educational explanations
-  - [ ] Positive reinforcement for correct responses
-  - [ ] Adaptive hints and scaffolding for struggling students
-
-### 3.3 Student Assessment Infrastructure
-- [ ] **Practice Question Engine**: Generate adaptive questions from conversation context
-  - [ ] Translation exercises with difficulty scaling
-  - [ ] Fill-in-the-blank grammar practice
-  - [ ] Multiple choice vocabulary tests
-  - [ ] Conversation continuation scenarios
-  - [ ] Grammar correction challenges
-- [ ] **Structured Question Generation System**: Generate practice questions by specification
-  - [ ] **Input Parameters**: CEFR level (A1-C2), topic (cities, food, family, etc.), question format
-  - [ ] **Question Formats**:
-    - [ ] Fill-in-the-gap ("Complete: 'Io ___ a Roma'" → "vado")
-    - [ ] Multiple choice vocabulary
-    - [ ] Translation exercises (Italian→English, English→Italian)
-    - [ ] Grammar correction ("Fix this sentence: 'Io sono andare'")
-    - [ ] Conversation starters ("Ask someone about their favorite Italian city")
-    - [ ] Reading comprehension with questions
-  - [ ] **Difficulty Scaling**: Automatically adjust complexity within CEFR level
-  - [ ] **Topic Integration**: Generate questions relevant to specified topics
-  - [ ] **Batch Generation**: Create multiple questions of the same type for practice sets
-- [ ] **Response Recording System**: Capture and store student answers
-- [ ] **Answer Analysis Pipeline**: Process student responses for insights
-- [ ] **Progress Tracking Database**: Store learning analytics over time
-
-### 3.2 Teacher Analytics Dashboard
+### 3.2 Teacher Analytics Dashboard 📋 **FUTURE**
 - [ ] **Student Progress Visualization**: Charts showing learning trajectory
 - [ ] **Difficulty Analysis**: Identify areas where students struggle
 - [ ] **Engagement Metrics**: Track time spent, questions attempted, success rates
@@ -234,14 +203,16 @@ A sophisticated multi-agent AI system for personalized Italian language learning
 - [ ] **Personalization Insights**: Recommend focus areas for individual students
 - [ ] **Comparative Analytics**: Class-wide performance patterns
 
-### 3.3 Adaptive Learning Intelligence
-- [ ] **Dynamic Difficulty Adjustment**: Modify question complexity based on performance
-- [ ] **Personalized Learning Paths**: Suggest next topics based on student analytics
-- [ ] **Intervention Recommendations**: Alert teachers when students need help
-- [ ] **Learning Style Detection**: Identify visual, auditory, kinesthetic preferences
-- [ ] **Cultural Interest Profiling**: Adapt cultural content to student interests
+### 3.3 Student Homework Submission & Grading 📋 **FUTURE**
+- [ ] **Homework Submission**: Student answer submission endpoint
+- [ ] **Automated Grading**: Evaluate student answers against correct answers
+- [ ] **Feedback Generation**: Provide explanations for incorrect answers
+- [ ] **Progress Tracking**: Track completion rates and scores
 
-### 3.4 Automated Assessment & Reporting System
+### 3.4 Advanced Features 📋 **FUTURE**
+- [ ] **Adaptive Learning Intelligence**: Dynamic difficulty adjustment
+- [ ] **Teacher Analytics Dashboard**: Progress visualization and insights
+- [ ] **Automated Reporting**: PDF report generation
 - [ ] **Comprehensive Session Analysis**: Deep learning outcome assessment
   - [ ] Error pattern analysis and categorization
   - [ ] Grammar concept mastery tracking per student
