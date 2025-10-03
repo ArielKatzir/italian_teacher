@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Teacher CLI helper script
+# Usage: ./teacher student create --name "Mario" --email "mario@example.com"
+
+cd "$(dirname "$0")"
+python3 -m src.cli.teacher_cli "$@"

@@ -92,25 +92,34 @@ def create_inference_app(llm, port: int = 8001):
             # Create numbered placeholders to guide the model
             exercise_numbers = ", ".join([f"#{i+1}" for i in range(request.quantity)])
 
-            # Optimized prompt with 5 complete examples
-            prompt = f"""Create exactly {request.quantity} Italian language exercises ({exercise_numbers}) in JSON format.
+            topic = request.topic if request.topic else "general Italian"
+            grammer = request.grammar_focus if request.grammar_focus else "general practice"
+
+            # Build topic and grammar instructions
+            topic_instruction = f"about '{topic}'"
+            grammar_instruction = f"focusing on {grammer}"
+            focus_text = f"{topic_instruction} {grammar_instruction}".strip()
+
+            # Optimized prompt that emphasizes the actual topic
+            prompt = f"""Create exactly {request.quantity} Italian language exercises ({exercise_numbers}) in JSON format {focus_text}.
 
 REQUIREMENTS:
 Level: {request.cefr_level}
-Grammar: {request.grammar_focus}
-Topic: {request.topic}
+Topic: {topic}
+Grammar: {grammer}
 Exercise types: {', '.join(request.exercise_types)}
 
-OUTPUT FORMAT - JSON array with {request.quantity} complete exercises:
+IMPORTANT: All exercises MUST be about the topic "{topic}" at {request.cefr_level} level.
+IMPORTANT: All exercises MUST be using the grammer "{grammer}" at {request.cefr_level} level.
+
+OUTPUT FORMAT - JSON array:
 [
-  {{"type": "fill_in_blank", "question": "Io ___ a casa ogni giorno.", "correct_answer": "vado", "options": null, "explanation": "Present tense of andare"}},
-  {{"type": "translation", "question": "Translate: I wake up at 7am", "correct_answer": "Mi sveglio alle sette", "options": null, "explanation": "Reflexive verb svegliarsi"}},
-  {{"type": "multiple_choice", "question": "Come si dice 'I sleep'?", "correct_answer": "Dormo", "options": ["Dormo", "Dorme", "Dormire", "Dormono"], "explanation": "First person of dormire"}},
-  {{"type": "fill_in_blank", "question": "Loro ___ la colazione insieme.", "correct_answer": "fanno", "options": null, "explanation": "Third person plural of fare"}},
-  {{"type": "translation", "question": "Translate: We study every day", "correct_answer": "Studiamo ogni giorno", "options": null, "explanation": "First person plural of studiare"}}
+  {{"type": "fill_in_blank", "question": "[Italian sentence with blank about {topic}]", "correct_answer": "[correct word]", "options": null, "explanation": "[grammar explanation]"}},
+  {{"type": "translation", "question": "Translate: [English sentence about {topic}]", "correct_answer": "[Italian translation]", "options": null, "explanation": "[explanation]"}},
+  {{"type": "multiple_choice", "question": "[Question about {topic}]", "correct_answer": "[correct answer]", "options": ["[option1]", "[option2]", "[option3]", "[option4]"], "explanation": "[explanation]"}}
 ]
 
-NOW GENERATE ALL {request.quantity} EXERCISES (do not stop until you complete all {request.quantity}):
+NOW GENERATE ALL {request.quantity} EXERCISES ABOUT "{topic}" (do not use examples from other topics):
 ["""
 
             # Configure sampling parameters

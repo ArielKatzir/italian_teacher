@@ -96,19 +96,50 @@ italian_teacher/
 
 ## 🎯 Common Tasks
 
-### Create a Student
+### Using the CLI (Recommended)
+
+**Teacher creates a student:**
 ```bash
-curl -X POST http://localhost:8000/teacher/students \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Mario Rossi", "cefr_level": "A2"}'
+./teacher student create --name "Mario Rossi" --email "mario@example.com"
 ```
 
-### Create Homework Assignment
+**Teacher creates homework:**
 ```bash
-curl -X POST http://localhost:8000/teacher/homework \
+./teacher assignment create \
+  --student-ids 1 \
+  --level A2 \
+  --topic "daily routines" \
+  --quantity 5
+```
+
+**Teacher checks status:**
+```bash
+./teacher assignment status --id 1
+```
+
+**Student views homework:**
+```bash
+./student homework list --student-id 1
+./student homework view --student-id 1 --homework-id 1
+```
+
+See [CLI_GUIDE.md](CLI_GUIDE.md) for complete CLI documentation.
+
+### Using the API Directly
+
+**Create a Student:**
+```bash
+curl -X POST http://localhost:8000/api/teacher/students \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Mario Rossi", "email": "mario@example.com"}'
+```
+
+**Create Assignment:**
+```bash
+curl -X POST http://localhost:8000/api/teacher/assignments \
   -H "Content-Type: application/json" \
   -d '{
-    "student_id": 1,
+    "student_ids": [1],
     "cefr_level": "A2",
     "grammar_focus": "present_tense",
     "topic": "daily routines",
@@ -117,9 +148,9 @@ curl -X POST http://localhost:8000/teacher/homework \
   }'
 ```
 
-### Get Student Homework
+**Get Student Homework:**
 ```bash
-curl http://localhost:8000/student/1/homework?status=pending
+curl http://localhost:8000/api/student/1/homework?status=available
 ```
 
 ## 🔧 Environment Variables

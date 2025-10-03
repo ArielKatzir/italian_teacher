@@ -139,8 +139,8 @@ async def _generate_exercises_remote(
     try:
         request_payload = {
             "cefr_level": cefr_level,
-            "grammar_focus": grammar_focus,
-            "topic": topic,
+            "grammar_focus": grammar_focus or "",  # Convert None to empty string
+            "topic": topic or "",  # Convert None to empty string
             "quantity": quantity,
             "exercise_types": exercise_types,
             "max_tokens": 1500,
@@ -151,7 +151,7 @@ async def _generate_exercises_remote(
             async with session.post(
                 f"{INFERENCE_API_URL}/generate",
                 json=request_payload,
-                timeout=aiohttp.ClientTimeout(total=60),  # 60 second timeout
+                timeout=aiohttp.ClientTimeout(total=180),  # 180 second timeout (3 minutes)
             ) as response:
                 if response.status == 200:
                     data = await response.json()
