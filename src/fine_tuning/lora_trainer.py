@@ -49,12 +49,12 @@ class MarcoLoRATrainer:
 
         self.config = config or get_default_config()
 
-        # Auto-adjust for available GPU
-        if torch.cuda.is_available():
+        # Only auto-adjust if config wasn't already adjusted (avoid double adjustment)
+        if torch.cuda.is_available() and config is None:
             gpu_name = torch.cuda.get_device_name(0)
             logger.info(f"Detected GPU: {gpu_name}")
             self.config = adjust_config_for_gpu(self.config, gpu_name)
-        else:
+        elif not torch.cuda.is_available():
             logger.warning("No GPU detected. Training will be very slow.")
 
         # Set random seed for reproducibility
@@ -84,9 +84,11 @@ class MarcoLoRATrainer:
         # Configure quantization for memory efficiency
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
+            bnb_4bit_use_double_quant=True,  # Enable for A100 (better accuracy, plenty of memory)
             bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_compute_dtype=(
+                torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+            ),
         )
 
         # Load model with quantization
