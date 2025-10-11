@@ -13,27 +13,22 @@ from typing import List, Optional
 class LoRAConfig:
     """LoRA-specific configuration parameters."""
 
-    # LoRA Parameters (V3: balanced - best of V1 reliability + V2 low overfitting)
+    # LoRA Parameters (V4: weaker alpha to preserve base model knowledge)
     r: int = 12  # LoRA rank - sweet spot between capacity (16) and regularization (8)
-    lora_alpha: int = 24  # LoRA scaling parameter (2x rank is standard)
-    lora_dropout: float = (
-        0.12  # Moderate dropout - prevents overfitting without sacrificing performance
-    )
+    lora_alpha: int = 6  # Weaker alpha (0.5x rank) to prevent catastrophic forgetting
+    lora_dropout: float = 0.15  # Increased dropout - helps preserve base model knowledge
 
     # Target Modules (LLaMA 3 architecture)
     target_modules: List[str] = None
 
     def __post_init__(self):
         if self.target_modules is None:
-            # Target attention and feed-forward layers for LLaMA 3 architecture
+            # Target fewer modules to preserve more base knowledge (V4 optimization)
             self.target_modules = [
-                "q_proj",  # Query projection
-                "k_proj",  # Key projection
-                "v_proj",  # Value projection
-                "o_proj",  # Output projection
-                "gate_proj",  # Gate projection (MLP)
-                "up_proj",  # Up projection (MLP)
-                "down_proj",  # Down projection (MLP)
+                "q_proj",  # Query projection (attention steering)
+                "v_proj",  # Value projection (content transformation)
+                # Removed k_proj, o_proj, gate_proj, up_proj, down_proj
+                # to preserve more of the base model's Italian language knowledge
             ]
 
 
@@ -48,8 +43,8 @@ class TrainingConfig:
 
     # Training Parameters (optimized for 3,983 examples)
     num_train_epochs: int = 1  # Single epoch to prevent overfitting and memorization
-    per_device_train_batch_size: int = 4  # Adjust based on GPU
-    per_device_eval_batch_size: int = 4
+    per_device_train_batch_size: int = 8  # Adjust based on GPU
+    per_device_eval_batch_size: int = 8
     gradient_accumulation_steps: int = 4  # Effective batch size = 16
 
     # Learning Rate & Optimization (V3: balanced between V1 and V2)
@@ -70,13 +65,13 @@ class TrainingConfig:
 
     # Logging & Saving (adjusted for 3,983 examples dataset)
     logging_steps: int = 50
-    save_steps: int = 200  # ~8 checkpoints per epoch (reasonable for larger dataset)
-    eval_steps: int = 200
-    save_total_limit: int = 3  # Keep 3 best checkpoints
+    save_steps: int = 100  # ~8 checkpoints per epoch (reasonable for larger dataset)
+    eval_steps: int = 100
+    save_total_limit: int = 2  # Keep 3 best checkpoints
 
     # Output Configuration
-    output_dir: str = "./models/italian_exercise_generator_lora_v3"
-    run_name: str = "italian_exercise_generator_v3_balanced"
+    output_dir: str = "./models/italian_exercise_generator_v4"
+    run_name: str = "italian_exercise_generator_v4"
 
     # Data Configuration
     max_seq_length: int = 2048  # Further increased to handle complex B2/C2 exercises (was 1536)
@@ -93,15 +88,15 @@ class TrainingConfig:
 class DataConfig:
     """Data preprocessing configuration."""
 
-    # Data Paths - Final production dataset (3,983 examples, 19,535 exercises)
+    # Data Paths - V4 Augmented dataset (8,859 examples, comprehensive coverage)
     train_file: str = (
-        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/datasets/final/train.jsonl"
+        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/datasets/v4_augmented/train.jsonl"
     )
     validation_file: str = (
-        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/datasets/final/validation.jsonl"
+        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/datasets/v4_augmented/validation.jsonl"
     )
     test_file: str = (
-        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/datasets/final/test.jsonl"
+        "/content/drive/MyDrive/Colab Notebooks/italian_teacher/data/datasets/v4_augmented/test.jsonl"
     )
 
     # Preprocessing
@@ -129,9 +124,9 @@ class ExperimentConfig:
     wandb_tags: List[str] = None
 
     # Experiment Info
-    experiment_name: str = "llamantino_anita_exercise_gen_v3_balanced"
+    experiment_name: str = "llamantino_anita_exercise_gen_v4_preserve_base"
     description: str = (
-        "V3 Balanced LoRA (rank=12, 1 epoch, max_len=2048) - best of V1 reliability + V2 low overfitting"
+        "V4 Weak LoRA (rank=12, alpha=6, 2 modules) - preserve base model Italian knowledge, prevent catastrophic forgetting"
     )
 
     def __post_init__(self):
@@ -142,10 +137,10 @@ class ExperimentConfig:
                 "lora",
                 "llamantino-anita",
                 "education",
-                "v3-balanced",
-                "rank12",
-                "low-overfitting",
-                "high-reliability",
+                "v4-weak-alpha",
+                "rank12-alpha6",
+                "preserve-base-knowledge",
+                "anti-catastrophic-forgetting",
             ]
 
 
@@ -172,6 +167,11 @@ class FullConfig:
 
 def get_exercise_generation_config() -> FullConfig:
     """Get the default configuration for Italian exercise generation training."""
+    return FullConfig()
+
+
+def get_default_config() -> FullConfig:
+    """Get the default configuration for Marco Italian teacher training."""
     return FullConfig()
 
 
@@ -212,7 +212,7 @@ def adjust_config_for_gpu(config: FullConfig, gpu_name: str) -> FullConfig:
         config.training.gradient_checkpointing = True
         config.training.dataloader_pin_memory = True
         config.data.max_length = 2048  # V3: Increased to prevent B2/C2 truncation
-        config.training.dataloader_num_workers = 4
+        config.training.dataloader_num_workers = 8
         config.training.tf32 = True  # Enable TF32 for faster training
         print("🏎️  A100 GPU detected: Using high-performance settings for 8B model")
 

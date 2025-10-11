@@ -36,9 +36,9 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 def list_homework(
     student_id: int = typer.Option(..., "--student-id", "-s", help="Student ID"),
     status: str = typer.Option(
-        "available",
+        "all",
         "--status",
-        help="Filter by status (available, pending, in_progress, completed)",
+        help="Filter by status (all, available, pending, in_progress, completed)",
     ),
 ):
     """List all homework for a student."""

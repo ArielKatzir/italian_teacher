@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/student", tags=["student"])
 @router.get("/{student_id}/homework", response_model=HomeworkListResponse)
 async def get_student_homework(
     student_id: int,
-    status: str = "available",  # Filter by status: available, in_progress, completed
+    status: str = "all",  # Filter by status: all, available, pending, in_progress, completed
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -23,7 +23,7 @@ async def get_student_homework(
 
     Args:
         student_id: The student's ID
-        status: Filter by homework status (default: "available")
+        status: Filter by homework status (default: "all")
     """
     # Verify student exists
     result = await db.execute(select(Student).where(Student.id == student_id))
@@ -35,7 +35,7 @@ async def get_student_homework(
     # Get homework filtered by status
     query = select(Homework).where(Homework.student_id == student_id)
 
-    if status:
+    if status and status != "all":
         query = query.where(Homework.status == status)
 
     result = await db.execute(query.order_by(Homework.created_at.desc()))

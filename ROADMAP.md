@@ -4,12 +4,12 @@
 
 An AI-powered Italian language teaching platform with personalized homework generation and automated exercise creation using fine-tuned models on GPU.
 
-**Current Phase**: Phase 4 - Exercise Generation Quality Improvements 🚧
+**Current Phase**: Phase 4 - Exercise Generation Model Complete ✅
 
 **Status**:
 - ✅ Phase 1-2: Marco v3 conversation model trained and deployed
 - ✅ Phase 3: Teacher/Student CLI with background GPU generation working
-- 🚧 Phase 4: Improving exercise generation quality (CURRENT)
+- ✅ Phase 4: Exercise generation model trained (models/italian_exercise_generator_lora)
 - 📋 Phase 5+: Platform features and multi-agent system (FUTURE)
 
 ---
@@ -199,81 +199,93 @@ An AI-powered Italian language teaching platform with personalized homework gene
 
 ---
 
-## Phase 4: Exercise Generation Quality Improvements 🚧 **CURRENT PRIORITY**
+## Phase 4: Exercise Generation Model Quality Optimization
 
-### 4.1 Structured Exercise Generation Model
-- [ ] **Current Challenge**: Marco v3 trained for conversation, not structured exercise generation
-  - ⚠️ Format inconsistencies (placeholders not filled, wrong exercise structure)
-  - ⚠️ Repetitive content (same sentences appearing multiple times)
-  - ⚠️ Quality issues (exercises don't match expected format)
+### 4.1 LoRA Fine-Tuning Approach ✅ **COMPLETED**
 
-#### Phase 4.1.1: Model Selection & Approach
-- [ ] **Evaluate Model Options**
-  - [ ] Test larger base models (Llama 70B, GPT-4, Claude) for structured output quality
-  - [ ] Benchmark current Marco v3 vs alternatives on exercise generation
-  - [ ] Consider cost/performance tradeoffs for production use
-  - [ ] Decision: Fine-tune new model OR use larger pretrained model
-- [ ] **Structured Generation Implementation**
-  - [ ] Implement Outlines library for JSON schema enforcement
-  - [ ] OR implement Guidance for constrained generation
-  - [ ] Define strict JSON schema for exercise format validation
-  - [ ] Test structured generation with current model
+**Initial Attempt (V1-V3)**:
+- [x] **Dataset Creation**: Built high-quality exercise generation dataset
+  - [x] Exercise types: fill-in-blank, translation, multiple choice
+  - [x] CEFR level distribution (A1→C2) with proper complexity scaling
+  - [x] Topic variety: food, travel, culture, daily life, grammar-specific
+  - [x] Consistent JSON structure with validation standards
+  - [x] Final dataset: 3,186 examples → augmented to 8,257 examples (V4)
+- [x] **Model Training**: Fine-tuned dedicated exercise generator
+  - [x] Base model: swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA (Italian-specialized)
+  - [x] LoRA configuration: r=12, alpha=8 (V3) → alpha=6 (V4, weaker to prevent forgetting)
+  - [x] Target modules: 5 modules (V3) → 2 modules (V4, preserve base knowledge)
+  - [x] Model saved: `models/italian_exercise_generator_v4`
+- [x] **Production Deployment**: Model integrated with FastAPI + Colab GPU inference
 
-#### Phase 4.1.2: Exercise-Specific Training Dataset
-- [ ] **Create High-Quality Exercise Dataset**
-  - [ ] Collect 5,000+ real Italian language exercises from textbooks/courses
-  - [ ] Manually create 1,000+ topic-specific examples (food, travel, culture, etc.)
-  - [ ] Include proper CEFR level distribution (A1→C2)
-  - [ ] Ensure variety in exercise types (fill-in-blank, translation, multiple choice)
-  - [ ] Format all examples in consistent JSON structure
-- [ ] **Data Quality Standards**
-  - [ ] Fill-in-blank: Must have single `___` blank and grammatically correct answer
-  - [ ] Translation: Must have natural English→Italian pairs
-  - [ ] Multiple choice: Must have 4 options, 1 correct, 3 plausible distractors
-  - [ ] All exercises: Must include clear explanation
+**Challenges Identified**:
+- ⚠️ **Catastrophic forgetting**: LoRA overwrites base model's Italian grammar knowledge
+- ⚠️ **Gender errors on rare words**: Model lacks vocabulary coverage (aquila, ragno, lombrico)
+- ⚠️ **Tense inconsistency**: Generates wrong tense despite grammar_focus parameter
+- ⚠️ **Prompt engineering limitations**: Can't fully compensate for model weaknesses
 
-#### Phase 4.1.3: Fine-Tuning for Exercise Generation
-- [ ] **Training Strategy**
-  - [ ] Start from base Minerva-7B (NOT Marco v3 conversation model)
-  - [ ] LoRA fine-tuning on exercise-specific dataset
-  - [ ] Use lower temperature (0.3-0.4) for more consistent output
-  - [ ] Optimize for JSON format compliance
-- [ ] **Evaluation Metrics**
-  - [ ] JSON parse success rate (target: 95%+)
-  - [ ] Exercise format correctness (proper blanks, options, etc.)
-  - [ ] Topic relevance score (exercises match requested topic)
-  - [ ] CEFR level appropriateness (vocabulary/grammar complexity)
-  - [ ] Human evaluation: 100 exercises rated by Italian teachers
+**Key Insight**:
+> LoRA fine-tuning learns statistical patterns from data, not Italian grammar rules. Even with 8,000+ examples and optimized hyperparameters, fundamental quality issues persist.
 
-### 4.2 Prompt Engineering & Optimization
-- [ ] **Improve Generation Prompts**
-  - [ ] Remove placeholder examples that model copies
-  - [ ] Add dynamic few-shot examples based on topic
-  - [ ] Test different prompt structures (instruction-following vs few-shot)
-  - [ ] Experiment with temperature (0.3-0.7) for format vs creativity balance
-- [ ] **Topic-Specific Prompting**
-  - [ ] Create topic templates (food, travel, culture, daily life, etc.)
-  - [ ] Add vocabulary banks for each topic
-  - [ ] Include cultural context hints in prompts
-  - [ ] Test grammar-specific generation (present tense, past tense, etc.)
+### 4.2 Reinforcement Learning Approach 🔄 **IN PROGRESS**
 
-### 4.3 Quality Validation & Post-Processing
-- [ ] **Automated Exercise Validation**
-  - [ ] Validate JSON format compliance
-  - [ ] Check fill-in-blank exercises have exactly one `___`
-  - [ ] Verify multiple choice has 4 options
-  - [ ] Ensure translation pairs are non-empty
-  - [ ] Flag exercises with placeholder text
-- [ ] **Content Quality Checks**
-  - [ ] Italian grammar validation (basic spell check)
-  - [ ] Topic relevance scoring (keywords, semantic similarity)
-  - [ ] CEFR level vocabulary check (word frequency lists)
-  - [ ] Reject and regenerate exercises below quality threshold
-- [ ] **Post-Processing Pipeline**
-  - [ ] Clean up formatting issues
-  - [ ] Remove duplicate exercises
-  - [ ] Reorder exercises for variety
-  - [ ] Add difficulty progression (easy → hard)
+**Why RL**: Direct optimization for correctness using explicit reward functions
+
+**Method: GRPO (Group Relative Policy Optimization)**
+- [ ] **Reward Function Design**
+  - [ ] Gender agreement validation (spaCy + Italian dictionary)
+  - [ ] Tense consistency checking (pattern matching + NLP)
+  - [ ] JSON schema validation
+  - [ ] Topic adherence scoring (semantic similarity)
+  - [ ] Italian fluency metrics
+- [ ] **Training Dataset Preparation**
+  - [ ] Extract ~2,000 diverse training requests from V4 dataset
+  - [ ] Format: just requests (level/grammar/topic), not full exercises
+  - [ ] GRPO generates exercises on-the-fly during training
+- [ ] **GRPO Training**
+  - [ ] Base model: V4 LoRA (starting point)
+  - [ ] Generate 4 exercises per request, score and rank them
+  - [ ] Train model to prefer high-reward exercises
+  - [ ] KL penalty to preserve base Italian knowledge
+  - [ ] Training time: 2-3 days on L4/A100 GPU
+- [ ] **Expected Improvements**
+  - [ ] Gender accuracy: 85% → 95%+
+  - [ ] Tense consistency: 75% → 95%+
+  - [ ] JSON validity: 90% → 99%+
+  - [ ] Overall reward score: 60/100 → 85/100
+
+**Timeline**: 2 weeks
+**Cost**: ~$10-15 (Colab Pro + training)
+**Deliverable**: `models/italian_exercise_generator_v5_grpo`
+
+**Documentation**:
+- [RL_VS_ALTERNATIVES.md](RL_VS_ALTERNATIVES.md) - Why RL over full fine-tuning/RAG
+- [RL_EXPLAINED.md](RL_EXPLAINED.md) - How GRPO works (vs PPO/DPO/RLAIF)
+- [NEXT_STEPS_GRPO.md](NEXT_STEPS_GRPO.md) - Implementation roadmap
+
+### 4.3 RAG Enhancement (Optional) 📋 **FUTURE**
+
+**Concept**: Supplement model with retrieval of perfect examples at inference time
+
+**Approach**:
+- [ ] **Example Bank Creation**
+  - [ ] Curate 500-1000 gold-standard Italian exercises
+  - [ ] Manual validation by Italian teachers
+  - [ ] Store in vector database (FAISS/Pinecone)
+- [ ] **Retrieval System**
+  - [ ] Embed incoming request (level/grammar/topic)
+  - [ ] Retrieve top-3 most similar validated exercises
+  - [ ] Inject into prompt as few-shot examples
+- [ ] **Hybrid Pipeline**
+  - [ ] RAG provides guidance (show model perfect examples)
+  - [ ] GRPO model generates (learned quality from RL)
+  - [ ] Rule-based validation catches edge cases
+
+**Benefits**:
+- ✅ Complements RL (examples + optimization)
+- ✅ Easy to update (just add to example bank)
+- ✅ No retraining needed
+
+**When to implement**: After GRPO shows promising results but still has edge cases
 
 ---
 

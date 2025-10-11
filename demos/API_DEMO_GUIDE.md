@@ -6,6 +6,20 @@ Complete guide to starting, using, and stopping the API server.
 
 ## 🚀 Quick Start
 
+### 0. Set Up GPU Inference (REQUIRED)
+
+**GPU inference is required** - the API will not work without it.
+
+1. **Open your Colab GPU notebook** ([demos/colab_inference_api.ipynb](demos/colab_inference_api.ipynb))
+2. **Run all cells** to start the inference server
+3. **Copy the ngrok URL** from the output (e.g., `https://abc123.ngrok.io`)
+4. **Set the environment variable:**
+   ```bash
+   export INFERENCE_API_URL="https://your-ngrok-url.ngrok.io"
+   ```
+
+**Without this setup**, exercise generation will fail with an error.
+
 ### 1. Start the Server
 
 ```bash
@@ -160,13 +174,15 @@ curl -X POST "http://localhost:8000/api/teacher/assignments" \
 }
 ```
 
-**⚠️ Important:** The assignment is created immediately, but homework generation happens **in the background**. Wait ~3 seconds before checking student homework.
+**⚠️ Important:** The assignment is created immediately, but homework generation happens **in the background** using GPU.
+- Wait ~90 seconds for 5 exercises (varies by GPU: L4, V100, A100)
+- If GPU is not available, generation will fail
 
 ---
 
 ### Step 4: Check Assignment Status
 
-**Wait 3 seconds**, then check if homework generation is complete:
+**Wait for generation to complete** (~90 seconds on GPU), then check status:
 
 **Browser:** Click `GET /api/teacher/assignments/{assignment_id}` → Enter `1` → "Execute"
 
@@ -496,20 +512,26 @@ pip install -r requirements.txt
 ## 🔮 Next Steps
 
 **Current Status:**
-- ✅ API working with mock homework generation
+- ✅ API working with GPU exercise generation via `italian_exercise_generator_lora`
 - ✅ Database storing students, assignments, homework
 - ✅ Background task queue for async generation
+- ✅ Colab GPU inference API integration (via ngrok tunnel)
+
+**How Exercise Generation Works:**
+1. Set `INFERENCE_API_URL` environment variable to your Colab ngrok URL
+2. Uses fine-tuned `models/italian_exercise_generator_lora` model
+3. Generates high-quality, level-appropriate Italian exercises
+4. ~90 seconds for 5 exercises on GPU (L4, V100, or A100)
+
+**⚠️ GPU is required** - generation will fail without `INFERENCE_API_URL` set
 
 **TODO:**
-1. Replace mock `generate_exercises()` with real **MarcoInference** integration
-2. Add student answer submission endpoint
-3. Add homework grading system
-4. Add teacher analytics dashboard
+1. Add student answer submission endpoint
+2. Add homework grading system
+3. Add teacher analytics dashboard
 
-**Mock Generation Location:**
-[src/api/services/homework_service.py](src/api/services/homework_service.py:73) - `generate_exercises()` function
-
-Replace this with real MarcoInference calls to generate proper Italian exercises!
+**Generation Service Location:**
+[src/api/services/homework_service.py](src/api/services/homework_service.py:94) - `generate_exercises()` function
 
 ---
 

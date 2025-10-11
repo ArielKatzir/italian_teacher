@@ -1,6 +1,20 @@
-#!/usr/bin/env bash
-# Student CLI helper script
-# Usage: ./student homework list --student-id 1
+#!/bin/bash
+# Student CLI wrapper script
 
-cd "$(dirname "$0")"
-python3 -m src.cli.student_cli "$@"
+# Find Python interpreter
+if command -v python3.9 &> /dev/null; then
+    PYTHON="python3.9"
+elif command -v python3 &> /dev/null; then
+    PYTHON="python3"
+elif command -v python &> /dev/null; then
+    PYTHON="python"
+else
+    echo "❌ Python not found!"
+    exit 1
+fi
+
+# Set PYTHONPATH to project root
+export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}$(dirname "$0")"
+
+# Run student CLI
+$PYTHON -m src.cli.student_cli "$@"

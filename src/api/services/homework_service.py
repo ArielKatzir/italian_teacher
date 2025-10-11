@@ -1,12 +1,13 @@
 """
-Background service for generating homework using MarcoInference.
+Background service for generating homework using italian_exercise_generator_lora model.
 
-This service can work in two modes:
-1. Remote Colab GPU (via HTTP to ngrok tunnel) - RECOMMENDED
-2. Mock generation (for testing without GPU)
+This service requires Colab GPU inference API:
+- Connects to remote Colab GPU via HTTP (ngrok tunnel)
+- Uses fine-tuned italian_exercise_generator_lora model
+- Generates high-quality Italian language exercises
+- INFERENCE_API_URL environment variable is required
 """
 
-import asyncio
 import os
 from datetime import datetime
 from typing import Any, Dict, List
@@ -95,10 +96,10 @@ async def generate_exercises(
     cefr_level: str, grammar_focus: str, topic: str, quantity: int, exercise_types: List[str]
 ) -> List[Dict[str, Any]]:
     """
-    Generate exercises using Marco v3 via Colab GPU inference API.
+    Generate exercises using italian_exercise_generator_lora via Colab GPU inference API.
 
-    This function calls the Colab inference service (if configured) to generate
-    authentic Italian language exercises using the fine-tuned Marco v3 model.
+    This function calls the Colab inference service to generate authentic Italian
+    language exercises using the fine-tuned exercise generator model.
 
     Args:
         cefr_level: CEFR level (A1-C2)
@@ -111,21 +112,26 @@ async def generate_exercises(
         List of exercise dictionaries
 
     Environment Variables:
-        INFERENCE_API_URL: URL of Colab inference API (ngrok tunnel)
-                          If not set, falls back to mock implementation
+        INFERENCE_API_URL: URL of Colab inference API (ngrok tunnel) - REQUIRED
+
+    Raises:
+        ValueError: If INFERENCE_API_URL is not set
     """
-    if INFERENCE_API_URL:
-        # Use real Colab GPU inference
-        return await _generate_exercises_remote(
-            cefr_level, grammar_focus, topic, quantity, exercise_types
+    if not INFERENCE_API_URL:
+        error_msg = (
+            "❌ INFERENCE_API_URL not set. GPU inference is required.\n"
+            "   Please start your Colab notebook and set the environment variable:\n"
+            '   export INFERENCE_API_URL="https://your-ngrok-url.ngrok.io"'
         )
-    else:
-        # Fall back to mock implementation
-        print("⚠️  INFERENCE_API_URL not set. Using mock generation.")
-        print("   Set INFERENCE_API_URL environment variable to use Colab GPU.")
-        return await _generate_exercises_mock(
-            cefr_level, grammar_focus, topic, quantity, exercise_types
+        print(error_msg)
+        raise ValueError(
+            "INFERENCE_API_URL environment variable is required for exercise generation"
         )
+
+    # Use Colab GPU inference
+    return await _generate_exercises_remote(
+        cefr_level, grammar_focus, topic, quantity, exercise_types
+    )
 
 
 async def _generate_exercises_remote(
@@ -135,113 +141,39 @@ async def _generate_exercises_remote(
     Generate exercises using remote Colab GPU inference API.
 
     Makes HTTP POST request to Colab FastAPI service running on GPU.
+
+    Raises:
+        Exception: If generation fails for any reason (no fallback)
     """
-    try:
-        request_payload = {
-            "cefr_level": cefr_level,
-            "grammar_focus": grammar_focus or "",  # Convert None to empty string
-            "topic": topic or "",  # Convert None to empty string
-            "quantity": quantity,
-            "exercise_types": exercise_types,
-            "max_tokens": 1500,
-            "temperature": 0.7,
-        }
+    request_payload = {
+        "cefr_level": cefr_level,
+        "grammar_focus": grammar_focus or "",  # Convert None to empty string
+        "topic": topic or "",  # Convert None to empty string
+        "quantity": quantity,
+        "exercise_types": exercise_types,
+        "max_tokens": 1500,
+        "temperature": 0.7,
+    }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{INFERENCE_API_URL}/generate",
-                json=request_payload,
-                timeout=aiohttp.ClientTimeout(total=180),  # 180 second timeout (3 minutes)
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    exercises = data.get("exercises", [])
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{INFERENCE_API_URL}/generate",
+            json=request_payload,
+            timeout=aiohttp.ClientTimeout(total=180),  # 180 second timeout (3 minutes)
+        ) as response:
+            if response.status == 200:
+                data = await response.json()
+                exercises = data.get("exercises", [])
 
-                    print(
-                        f"✅ Generated {len(exercises)} exercises via Colab GPU "
-                        f"({data.get('inference_time', 0):.2f}s, "
-                        f"{data.get('generated_tokens', 0)} tokens)"
-                    )
+                print(
+                    f"✅ Generated {len(exercises)} exercises via Colab GPU "
+                    f"({data.get('inference_time', 0):.2f}s, "
+                    f"{data.get('generated_tokens', 0)} tokens)"
+                )
 
-                    return exercises
-                else:
-                    error_text = await response.text()
-                    print(
-                        f"❌ Colab API error {response.status}: {error_text} \nFalling back to MOCK answers"
-                    )
-                    # Fall back to mock on error
-                    return await _generate_exercises_mock(
-                        cefr_level, grammar_focus, topic, quantity, exercise_types
-                    )
-
-    except asyncio.TimeoutError:
-        print("⏱️  Colab API timeout. Falling back to mock generation.")
-        return await _generate_exercises_mock(
-            cefr_level, grammar_focus, topic, quantity, exercise_types
-        )
-    except Exception as e:
-        print(f"❌ Colab API request failed: {e}")
-        print("   Falling back to mock generation.")
-        return await _generate_exercises_mock(
-            cefr_level, grammar_focus, topic, quantity, exercise_types
-        )
-
-
-async def _generate_exercises_mock(
-    cefr_level: str, grammar_focus: str, topic: str, quantity: int, exercise_types: List[str]
-) -> List[Dict[str, Any]]:
-    """
-    Mock exercise generation for testing without GPU.
-
-    This is a fallback implementation that generates simple placeholder exercises.
-    """
-    exercises = []
-
-    for i in range(quantity):
-        exercise_type = exercise_types[i % len(exercise_types)]
-
-        if exercise_type == "fill_in_blank":
-            exercises.append(
-                {
-                    "type": "fill_in_blank",
-                    "question": f"Io ___ a Roma ieri. (andare)",
-                    "correct_answer": "sono andato" if grammar_focus == "past_tense" else "vado",
-                    "explanation": f"Using {grammar_focus or 'present tense'} conjugation",
-                }
-            )
-
-        elif exercise_type == "translation":
-            exercises.append(
-                {
-                    "type": "translation",
-                    "question": f"Translate: I went to {topic or 'Milan'} yesterday.",
-                    "correct_answer": f"Sono andato a {topic or 'Milano'} ieri.",
-                    "explanation": f"CEFR {cefr_level} translation exercise",
-                }
-            )
-
-        elif exercise_type == "multiple_choice":
-            exercises.append(
-                {
-                    "type": "multiple_choice",
-                    "question": f"Which is the correct {grammar_focus or 'form'}?",
-                    "correct_answer": "sono andato",
-                    "options": ["vado", "sono andato", "andavo", "andrò"],
-                    "explanation": f"Past tense of 'andare' at {cefr_level} level",
-                }
-            )
-
-        else:
-            exercises.append(
-                {
-                    "type": exercise_type,
-                    "question": f"Exercise {i+1} for {cefr_level} level",
-                    "correct_answer": "Sample answer",
-                    "explanation": f"Generated for {grammar_focus or 'general'} practice",
-                }
-            )
-
-    # Simulate generation delay
-    await asyncio.sleep(2)
-
-    return exercises
+                return exercises
+            else:
+                error_text = await response.text()
+                error_msg = f"Colab API error {response.status}: {error_text[:500]}"
+                print(f"❌ {error_msg}")
+                raise Exception(error_msg)

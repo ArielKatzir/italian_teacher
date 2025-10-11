@@ -31,7 +31,7 @@ import wandb
 # Local imports
 try:
     # Try relative imports first (when used as package)
-    from .config import FullConfig, adjust_config_for_gpu, get_default_config
+    from .config_exercise_generation import FullConfig, adjust_config_for_gpu, get_default_config
     from .data_preprocessing import prepare_datasets
 except ImportError:
     # Fall back to direct imports (when used standalone)
