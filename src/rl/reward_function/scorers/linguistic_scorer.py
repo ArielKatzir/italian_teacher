@@ -14,15 +14,15 @@ from .base import BaseScorer
 
 class LinguisticScorer(BaseScorer):
     """
-    Scores comprehensive Italian linguistic quality (0-35 points).
+    Scores comprehensive Italian linguistic quality (0-30 points).
 
     Checks:
     - Article-noun gender agreement with elision, partitives (8 pts)
-    - Number agreement (singular/plural consistency) (7 pts)
-    - Adjective-noun agreement (gender and number) (7 pts)
-    - Verb-subject agreement (person and number) (6 pts)
-    - Preposition usage (common errors) (4 pts)
-    - Pronoun agreement and positioning (3 pts)
+    - Number agreement (singular/plural consistency) (6 pts)
+    - Adjective-noun agreement (gender and number) (6 pts)
+    - Verb-subject agreement (person and number) (5 pts)
+    - Preposition usage (common errors) (3 pts)
+    - Pronoun agreement and positioning (2 pts)
     """
 
     def __init__(self, nlp: spacy.language.Language):
@@ -42,13 +42,13 @@ class LinguisticScorer(BaseScorer):
         # Parse with spaCy
         doc = self.nlp(text)
 
-        # Component scores (total 35)
-        article_score = 15.0
-        number_score = 7.0
-        adjective_score = 7.0
-        verb_score = 6.0
-        preposition_score = 4.0
-        pronoun_score = 5.0
+        # Component scores (total 30)
+        article_score = 8.0
+        number_score = 6.0
+        adjective_score = 6.0
+        verb_score = 5.0
+        preposition_score = 3.0
+        pronoun_score = 2.0
 
         # 1. Article-noun gender agreement (8 pts)
         article_errors = self._check_article_noun_agreement(doc)
@@ -105,9 +105,59 @@ class LinguisticScorer(BaseScorer):
         """
         errors = []
 
+        # Quantifiers and possessives that don't need articles
+        quantifiers = {
+            # Quantifiers
+            "molti",
+            "molte",
+            "pochi",
+            "poche",
+            "alcuni",
+            "alcune",
+            "tanti",
+            "tante",
+            "parecchi",
+            "parecchie",
+            "diversi",
+            "diverse",
+            "vari",
+            "varie",
+            "ogni",
+            "qualche",
+            "qualsiasi",
+            "ciascun",
+            "ciascuna",
+            # Possessive pronouns (don't need articles)
+            "mio",
+            "mia",
+            "miei",
+            "mie",
+            "tuo",
+            "tua",
+            "tuoi",
+            "tue",
+            "suo",
+            "sua",
+            "suoi",
+            "sue",
+            "nostro",
+            "nostra",
+            "nostri",
+            "nostre",
+            "vostro",
+            "vostra",
+            "vostri",
+            "vostre",
+            "loro",  # their (invariable)
+        }
+
         for token in doc:
             # Check if this is an article
             if token.pos_ != "DET":
+                continue
+
+            # Skip quantifiers - they don't require articles
+            if token.text.lower() in quantifiers:
                 continue
 
             # Find the noun this article modifies

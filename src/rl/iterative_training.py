@@ -1,117 +1,28 @@
-"""
-Iterative GRPO training with error-focused refinement.
-
-Round 1: Train on all data
-Evaluate: Find weak areas
-Round 2: Train on errors + some good examples (to prevent forgetting)
-"""
-
+import gc
 import json
-from typing import Dict, List, Tuple
+import re
+from typing import Dict, List, Tuple, Union
+
+import torch
+from tqdm.auto import tqdm
+
+# transformers imports (assumes transformers, bitsandbytes installed)
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
-def evaluate_model_on_requests(
-    model, tokenizer, reward_fn, requests: List[Dict], output_path: str = None
-) -> Tuple[List[Dict], List[Dict]]:
-    """
-    Evaluate model and separate good vs bad exercises.
-
-    Returns:
-        (low_scoring_requests, high_scoring_requests)
-    """
-    print(f"📊 Evaluating model on {len(requests)} requests...")
-
-    low_scoring = []  # Score < 70
-    high_scoring = []  # Score >= 70
-
-    for i, request in enumerate(requests):
-        # Generate exercise
-        prompt = format_prompt(request)
-        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-        outputs = model.generate(**inputs, max_new_tokens=512, temperature=0.7)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        try:
-            # Parse and score
-            exercises = json.loads(generated_text)
-            if not isinstance(exercises, list):
-                exercises = [exercises]
-
-            scores = []
-            for exercise in exercises:
-                score, _ = reward_fn.score(exercise, request)
-                scores.append(score)
-
-            avg_score = sum(scores) / len(scores)
-
-            # Categorize
-            if avg_score < 70:
-                low_scoring.append(
-                    {"request": request, "generated": generated_text, "score": avg_score}
-                )
-            else:
-                high_scoring.append(
-                    {"request": request, "generated": generated_text, "score": avg_score}
-                )
-
-        except Exception as e:
-            # Invalid JSON - definitely low scoring
-            low_scoring.append(
-                {"request": request, "generated": generated_text, "score": 10.0, "error": str(e)}
-            )
-
-        if (i + 1) % 50 == 0:
-            print(f"  Evaluated {i+1}/{len(requests)}")
-
-    print(f"\n✅ Evaluation complete:")
-    print(f"  Low scoring (< 70): {len(low_scoring)}")
-    print(f"  High scoring (>= 70): {len(high_scoring)}")
-
-    # Save results
-    if output_path:
-        results = {
-            "low_scoring": low_scoring,
-            "high_scoring": high_scoring,
-            "stats": {
-                "total": len(requests),
-                "low_count": len(low_scoring),
-                "high_count": len(high_scoring),
-                "avg_score": sum(r["score"] for r in low_scoring + high_scoring) / len(requests),
-            },
-        }
-        with open(output_path, "w") as f:
-            json.dump(results, f, indent=2)
-        print(f"  Saved results to {output_path}")
-
-    return low_scoring, high_scoring
-
-
+# keep your create_round2_dataset as-is
 def create_round2_dataset(
     low_scoring: List[Dict], high_scoring: List[Dict], low_weight: float = 0.7
 ) -> List[Dict]:
-    """
-    Create Round 2 training dataset.
-
-    Args:
-        low_scoring: Exercises that scored < 70
-        high_scoring: Exercises that scored >= 70
-        low_weight: Proportion of low-scoring examples (0.7 = 70% errors, 30% good)
-
-    Returns:
-        Mixed dataset for Round 2
-    """
     import random
 
-    # Calculate counts
     total_size = len(low_scoring) + len(high_scoring)
     num_low = int(total_size * low_weight)
     num_high = total_size - num_low
 
-    # Sample (with replacement if needed)
     selected_low = random.choices(low_scoring, k=min(num_low, len(low_scoring)))
     selected_high = random.choices(high_scoring, k=min(num_high, len(high_scoring)))
 
-    # Combine and shuffle
     round2_data = selected_low + selected_high
     random.shuffle(round2_data)
 
@@ -123,65 +34,355 @@ def create_round2_dataset(
     return [r["request"] for r in round2_data]
 
 
-def format_prompt(request: dict) -> str:
-    """Format request as prompt for model."""
-    return f"""Generate {request['num_exercises']} Italian {request['grammar_focus']} exercise(s) about {request['topic']} for level {request['level']}.
+def _maybe_move_sentence_transformer_to_cuda(reward_fn):
+    """
+    Try to move a SentenceTransformer used by TopicScorer to CUDA for speed.
+    Silently continue if not present or fails.
+    """
+    try:
+        # many reward_fn implementers have scorers dict with 'topic'
+        topic = getattr(reward_fn, "scorers", {}).get("topic", None)
+        if topic is not None:
+            sim = getattr(topic, "similarity_model", None)
+            if sim is not None:
+                try:
+                    sim.to("cuda")
+                    print("✅ SentenceTransformer moved to CUDA for topic scoring.")
+                except Exception as e:
+                    print("⚠️ Could not move SentenceTransformer to CUDA:", e)
+    except Exception:
+        pass
 
-Output as JSON array with fields: type, question, answer (and options/correct_option for multiple choice)."""
+
+def _move_model_to_cuda_or_reload_quantized(
+    model_or_path: Union[str, torch.nn.Module],
+    tokenizer,
+    quantize: bool = True,
+    dtype=torch.float16,
+):
+    """
+    If model_or_path is a path string -> load quantized (8-bit) with device_map="auto".
+    If it's a model instance -> try to .to('cuda') it; if OOM, raise an explanatory error.
+    Returns: model (on CUDA) and a flag `reloaded` (True if reloaded from path).
+    """
+    reloaded = False
+    # If user passed a path string: prefer to load with 8-bit quantization
+    if isinstance(model_or_path, str):
+        model_path = model_or_path
+        try:
+            print(f"Loading model from path '{model_path}' with 8-bit quantization...")
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                device_map="auto",
+                load_in_8bit=True,
+                torch_dtype=dtype,
+            )
+            reloaded = True
+            return model, reloaded
+        except Exception as e:
+            print("⚠️  Failed to load in 8-bit automatically:", e)
+            print("Attempting standard (non-quantized) load to try fallback...")
+            model = AutoModelForCausalLM.from_pretrained(model_path)
+            model.to("cuda")
+            reloaded = True
+            return model, reloaded
+
+    # If user passed a model instance: try to move it to cuda
+    elif isinstance(model_or_path, torch.nn.Module):
+        model = model_or_path
+        reloaded = False
+        try:
+            # Check if model is already on CUDA. device_map="auto" might have placed it there.
+            is_on_cuda = next(model.parameters()).is_cuda
+            # For quantized models with device_map, some parts might be on CPU.
+            # The presence of `hf_device_map` is a better indicator.
+            is_quantized_and_mapped = hasattr(model, "hf_device_map")
+
+            if is_quantized_and_mapped:
+                print("✅ Model is already quantized and mapped to devices.")
+            elif not is_on_cuda:
+                print("Attempting to move model to CUDA...")
+                model.to("cuda")
+                print("✅ Model is on CUDA.")
+
+            return model, reloaded
+        except torch.cuda.OutOfMemoryError as e:
+            raise RuntimeError(
+                "CUDA out of memory when trying to move model to GPU. "
+                "If the model was not loaded with quantization, try passing the model path string "
+                "to `evaluate_model_on_requests` to load it in 8-bit automatically."
+            ) from e
+    return model_or_path, False
 
 
-# Example usage workflow
-if __name__ == "__main__":
-    print(
-        """
-╔══════════════════════════════════════════════════════════════════════════╗
-║                    ITERATIVE GRPO TRAINING WORKFLOW                      ║
-╚══════════════════════════════════════════════════════════════════════════╝
+def format_prompt_with_chat_template(request: dict, tokenizer) -> str:
+    """
+    Format request using chat template + EXACT API prompt format.
 
-Round 1: Initial Training
--------------------------
-1. Train on all 2000 requests (3 epochs)
-2. Save model as "italian_v5_round1"
+    Combines:
+    1. Llama3 chat template (required for V4)
+    2. Detailed API prompt (ensures proper JSON format)
+    """
+    topic = request.get("topic", "general Italian")
+    grammar = request.get("grammar_focus", "general practice")
 
-Evaluation Phase
------------------
-3. Load Round 1 model
-4. Generate exercises on validation set (500 requests)
-5. Score each exercise with reward function
-6. Separate: low-scoring (< 70) vs high-scoring (>= 70)
+    # Create numbered placeholders to guide the model
+    exercise_numbers = ", ".join([f"#{i+1}" for i in range(request["num_exercises"])])
 
-Round 2: Error-Focused Training
---------------------------------
-7. Create mixed dataset:
-   - 70% from low-scoring requests (errors to fix)
-   - 30% from high-scoring requests (to prevent forgetting)
-8. Train Round 1 model on this mixed dataset (2-3 epochs)
-9. Save as "italian_v5_round2"
+    topic_instruction = f"about '{topic}'"
+    grammar_instruction = f"focusing on {grammar}"
+    focus_text = f"{topic_instruction} {grammar_instruction}".strip()
 
-Final Result
-------------
-- Model learns from mistakes
-- Doesn't forget what it learned in Round 1
-- Higher average reward score!
+    # Build grammar-specific instruction
+    grammar_rule = ""
+    if "past" in grammar.lower() or "passato" in grammar.lower():
+        grammar_rule = "\n⚠️ MANDATORY: Use ONLY past tense (passato prossimo like 'ho fatto', 'sono andato' OR imperfetto like 'facevo', 'andavo'). NO present tense!"
+    elif "present" in grammar.lower() or "presente" in grammar.lower():
+        grammar_rule = "\n⚠️ MANDATORY: Use ONLY present tense (presente indicativo like 'faccio', 'vado'). NO past or future!"
+    elif "future" in grammar.lower() or "futuro" in grammar.lower():
+        grammar_rule = "\n⚠️ MANDATORY: Use ONLY future tense (futuro semplice like 'farò', 'andrò'). NO present or past!"
 
-═══════════════════════════════════════════════════════════════════════════
+    # EXACT API PROMPT FORMAT - goes in user message
+    user_message = f"""Create exactly {request['num_exercises']} Italian language exercises ({exercise_numbers}) in JSON format {focus_text}.
 
-To use this in your training:
+REQUIREMENTS:
+Level: {request['level']}
+Topic: {topic}
+Grammar: {grammar}{grammar_rule}
+Exercise types: {', '.join(request['exercise_types'])}
 
-from src.rl.iterative_training import evaluate_model_on_requests, create_round2_dataset
+CRITICAL RULES:
+1. TOPIC: Every exercise MUST be about "{topic}" - stay on topic throughout
+2. REALISM: Use factual, natural scenarios appropriate for the topic
+3. GRAMMAR: EVERY SINGLE exercise MUST test "{grammar}" at {request['level']} level
+4. MULTIPLE CHOICE: Provide 4 DIFFERENT grammatical forms as options
+5. CONSISTENCY: Do not mix different topics or introduce unrelated subjects
 
-# After Round 1 training:
-low, high = evaluate_model_on_requests(
-    model, tokenizer, reward_fn,
-    validation_requests,
-    output_path="evaluation_round1.json"
-)
+OUTPUT FORMAT - JSON array with exercises testing {grammar}:
+[
+  {{"type": "fill_in_blank", "question": "[Italian sentence about {topic} with ___ blank for {grammar}]", "correct_answer": "[conjugated form in {grammar}]", "options": null, "explanation": "[grammar rule explanation]"}},
+  {{"type": "translation", "question": "Translate: [English sentence about {topic} in {grammar}]", "correct_answer": "[Italian translation using {grammar}]", "options": null, "explanation": "[grammar note]"}},
+  {{"type": "multiple_choice", "question": "[Italian sentence about {topic} with blank]", "correct_answer": "[correct form in {grammar}]", "options": ["[alt1]", "[alt2]", "[alt3]", "[alt4]"], "explanation": "[why this form is correct]"}}
+]
 
-# Create Round 2 dataset
-round2_requests = create_round2_dataset(low, high, low_weight=0.7)
+NOW GENERATE {request['num_exercises']} EXERCISES ABOUT "{topic}" TESTING "{grammar}" (remember: {grammar} ONLY!):
+["""
 
-# Train Round 2 (starting from Round 1 weights!)
-trainer = GRPOTrainer(model=model_round1, ...)  # Same model, continues training
-trainer.train()
-"""
+    # Apply chat template with system + user messages
+    messages = [
+        {
+            "role": "system",
+            "content": "You are an expert Italian language teacher. Generate high-quality exercises based on the assignment specification. Output exercises in JSON format.",
+        },
+        {"role": "user", "content": user_message},
+    ]
+
+    # Use tokenizer's chat template to format properly
+    formatted_prompt = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
     )
+
+    return formatted_prompt
+
+
+def evaluate_model_on_requests(
+    model_or_path: Union[str, torch.nn.Module],
+    tokenizer: AutoTokenizer,
+    reward_fn,
+    requests: List[Dict],
+    output_path: str = None,
+    batch_size: int = 4,
+    max_new_tokens: int = 400,
+    quantize_if_needed: bool = True,
+    save_each_batch: bool = True,
+    generation_kwargs: Dict = None,
+) -> Tuple[List[Dict], List[Dict]]:
+    """
+    GPU-optimised, batched evaluation. Accepts either:
+      - a model instance (torch.nn.Module) OR
+      - a path string to the model (will try to load in 8-bit)
+
+    Returns (low_scoring, high_scoring)
+
+    Args:
+        ...
+        generation_kwargs: Optional dictionary of kwargs to pass to `model.generate`.
+    """
+
+    # 1) Load / move model to GPU (or load 8-bit if path given)
+    model, reloaded = _move_model_to_cuda_or_reload_quantized(
+        model_or_path, tokenizer, quantize=quantize_if_needed
+    )
+
+    model.eval()
+    # 2) Move SentenceTransformer (TopicScorer) to GPU if possible
+    _maybe_move_sentence_transformer_to_cuda(reward_fn)
+
+    # 3) Sanity print
+    print(
+        f"📊 Evaluating {len(requests)} requests in batches of {batch_size} (max_new_tokens={max_new_tokens})"
+    )
+    try:
+        print("Model device:", next(model.parameters()).device)
+    except StopIteration:
+        print("Warning: model has no parameters (?)")
+
+    low_scoring = []
+    high_scoring = []
+
+    # Helper to save partial results
+    def _save_partial():
+        if not output_path:
+            return
+        results = {
+            "low_scoring": low_scoring,
+            "high_scoring": high_scoring,
+            "stats": {
+                "processed": len(low_scoring) + len(high_scoring),
+                "low_count": len(low_scoring),
+                "high_count": len(high_scoring),
+            },
+        }
+        with open(output_path, "w") as f:
+            json.dump(results, f, indent=2)
+
+    # iterate batches
+    n_batches = (len(requests) + batch_size - 1) // batch_size
+    for bidx in tqdm(range(n_batches), desc="Evaluating Batches"):
+        start = bidx * batch_size
+        batch = requests[start : start + batch_size]
+
+        prompts = [format_prompt_with_chat_template(req, tokenizer) for req in batch]
+
+        # Tokenize batched prompts
+        # For causal LMs we pass input_ids and attention_mask to generate
+        inputs = tokenizer(
+            prompts, return_tensors="pt", padding=True, truncation=True, max_length=2048
+        )
+        inputs = {k: v.to("cuda") for k, v in inputs.items()}
+
+        # Generate on GPU
+        with torch.no_grad():
+            try:
+                # Set default generation strategy if not provided
+                gen_kwargs = generation_kwargs or {
+                    "do_sample": False,  # deterministic by default
+                }
+
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    use_cache=True,
+                    **gen_kwargs,
+                )
+            except RuntimeError as e:
+                # If OOM at generation time, try smaller batch or suggest quantized reload
+                torch.cuda.empty_cache()
+                gc.collect()
+                raise RuntimeError(
+                    "RuntimeError during generation (possible OOM). Try reducing batch_size, "
+                    "or reload model in 8-bit. Original error:\n" + str(e)
+                ) from e
+
+        # outputs shape: (batch_size, seq_len_out)
+        # The 'outputs' from generate includes the prompt tokens. We must slice them off.
+        prompt_len = inputs["input_ids"].shape[1]
+        generated_tokens = outputs[:, prompt_len:]
+
+        # Decode only the newly generated part
+        generated_texts = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+
+        for i, generated_text in enumerate(generated_texts):
+
+            request = batch[i]
+            json_text = None
+            try:
+                # Use regex to find the JSON array. This is more robust than simple slicing.
+                # It handles cases where the model might add extra text after the JSON.
+                # The pattern looks for a string that starts with '[' and ends with ']'
+                # and contains balanced curly braces inside.
+                match = re.search(r"(\[[\s\S]*\])", generated_text)
+                if not match:
+                    raise json.JSONDecodeError(
+                        "No valid JSON array found in the output.", generated_text, 0
+                    )
+
+                json_text = match.group(1)
+
+                # Clean up common JSON errors from LLMs, like trailing commas
+                # before the closing bracket/brace
+                json_text = re.sub(r",\s*([}\]])", r"\1", json_text)
+
+                exercises = json.loads(json_text)
+                if not isinstance(exercises, list):
+                    exercises = [exercises]
+
+                if not exercises:
+                    raise ValueError("Parsed JSON is an empty list.")
+
+                scores = []
+                for exercise in exercises:
+                    # reward_fn is expected to be thread-safe / stateless per-call
+                    score, breakdown = reward_fn.score(exercise, request)
+                    scores.append(score)
+
+                avg_score = sum(scores) / len(scores)
+
+                if avg_score < 92:
+                    low_scoring.append(
+                        {
+                            "request": request,
+                            "generated": generated_text,
+                            "score": avg_score,
+                            "breakdown": str(breakdown),
+                        }
+                    )
+                else:
+                    high_scoring.append(
+                        {"request": request, "generated": generated_text, "score": avg_score}
+                    )
+
+            except Exception as e:
+                low_scoring.append(
+                    {
+                        "request": request,
+                        "generated": generated_text,
+                        "parsed_json": json_text,
+                        "score": 10.0,
+                        "error": str(e),
+                    }
+                )
+
+        # finished batch -> free some GPU memory and optionally save partial results
+        torch.cuda.synchronize()
+        torch.cuda.empty_cache()
+        gc.collect()
+        if output_path and save_each_batch:
+            _save_partial()
+
+    # done
+    total = len(low_scoring) + len(high_scoring)
+    avg_score = None
+    if total > 0:
+        avg_score = sum(r["score"] for r in low_scoring + high_scoring) / total
+
+    print(f"\n✅ Evaluation complete. Processed: {total}")
+    print(f"  Low scoring (<92): {len(low_scoring)}")
+    print(f"  High scoring (>=92): {len(high_scoring)}")
+    if avg_score is not None:
+        print(f"  Avg score (processed): {avg_score:.2f}")
+
+    # final save
+    if output_path:
+        _save_partial()
+        print(f"💾 Final results saved to {output_path}")
+
+    return low_scoring, high_scoring
+
+
+# Example usage:
+# if you already have a quantized / gpu model instance:
+# low, high = evaluate_model_on_requests(model, tokenizer, reward_fn, validation_requests, batch_size=4, output_path='eval.json')
+#
+# OR pass a model path string and let the helper try to load 8-bit:
+# low, high = evaluate_model_on_requests('./models/italian_v6_grpo_pilot', tokenizer, reward_fn, validation_requests, batch_size=4)

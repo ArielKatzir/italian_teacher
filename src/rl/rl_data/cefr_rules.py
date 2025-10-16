@@ -17,7 +17,7 @@ CEFR_RULES: Dict[str, Dict[str, Any]] = {
     "A2": {
         "sentence_length": (5, 14),
         "word_complexity": (1, 4),
-        "tenses": ["Pres", "Past", "Fut"],
+        "tenses": ["Pres", "Past", "Fut", "Imp"],  # A2 learners should know imperfect
         "clause_depth": 1,
         "vocabulary_level": "basic",
     },

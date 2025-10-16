@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+import torch
+
 # Add parent directory to path for standalone execution
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
@@ -27,6 +29,7 @@ import spacy
 try:
     from .scorers import (
         CEFRScorer,
+        CoherenceScorer,
         FluencyScorer,
         GrammarScorer,
         JSONScorer,
@@ -36,6 +39,7 @@ try:
 except ImportError:
     from src.rl.reward_function.scorers import (
         CEFRScorer,
+        CoherenceScorer,
         FluencyScorer,
         GrammarScorer,
         JSONScorer,
@@ -49,12 +53,13 @@ class RewardBreakdown:
     """Detailed breakdown of reward components."""
 
     json_validity: float  # 0-15
-    linguistic_quality: float  # 0-35
+    linguistic_quality: float  # 0-30 (reduced from 35)
     cefr_alignment: float  # 0-20
     fluency: float  # 0-10
     grammar_correctness: float  # 0-10
     topic_adherence: float  # 0-10
-    total: float  # 0-100
+    coherence: float  # 0-10 (NEW)
+    total: float  # 0-105 (will normalize to 100)
 
     errors: List[str]  # Specific issues found
 
@@ -62,11 +67,12 @@ class RewardBreakdown:
         return (
             f"Score: {self.total}/100\n"
             f"  JSON: {self.json_validity}/15\n"
-            f"  Linguistic: {self.linguistic_quality}/35\n"
+            f"  Linguistic: {self.linguistic_quality}/30\n"
             f"  CEFR: {self.cefr_alignment}/20\n"
             f"  Fluency: {self.fluency}/10\n"
             f"  Grammar: {self.grammar_correctness}/10\n"
             f"  Topic: {self.topic_adherence}/10\n"
+            f"  Coherence: {self.coherence}/10\n"
             f"Errors: {', '.join(self.errors) if self.errors else 'None'}"
         )
 
@@ -76,23 +82,29 @@ class ExerciseRewardFunction:
     Modular reward function for scoring Italian exercise quality.
 
     Uses individual scorer components:
-    - JSONScorer: Structure validation
-    - LinguisticScorer: Italian grammar rules
-    - CEFRScorer: Level-appropriate complexity (with 16,887-word vocabulary)
-    - FluencyScorer: Natural language flow
-    - GrammarScorer: Grammar focus validation
-    - TopicScorer: Semantic similarity to topic
+    - JSONScorer: Structure validation (15 pts)
+    - LinguisticScorer: Italian grammar rules (30 pts)
+    - CEFRScorer: Level-appropriate complexity (20 pts)
+    - FluencyScorer: Natural language flow (10 pts)
+    - GrammarScorer: Grammar focus validation (10 pts)
+    - TopicScorer: Semantic similarity to topic (10 pts)
+    - CoherenceScorer: Logical sense and coherence (10 pts) NEW
     """
 
-    def __init__(self, spacy_model: str = "it_core_news_sm"):
+    def __init__(
+        self,
+        spacy_model: str = "it_core_news_sm",
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    ):
         """
         Initialize modular reward function.
 
         Args:
             spacy_model: Italian spaCy model name (default: it_core_news_sm for speed)
+            device: The device to run heavy models on ('cuda' or 'cpu').
         """
-        # Load Italian NLP model
         try:
+            # Load Italian NLP model
             print(f"Loading spaCy model: {spacy_model}...")
             self.nlp = spacy.load(spacy_model)
             print("✅ spaCy model loaded")
@@ -100,6 +112,9 @@ class ExerciseRewardFunction:
             print(f"⚠️  spaCy model '{spacy_model}' not found.")
             print(f"   Install with: python -m spacy download {spacy_model}")
             raise
+
+        self.device = device
+        print(f"Reward function will use device: {self.device}")
 
         # Initialize individual scorers
         print("Initializing scorers...")
@@ -109,10 +124,11 @@ class ExerciseRewardFunction:
             "cefr": CEFRScorer(nlp=self.nlp),  # Pre-loads 16,887-word vocabulary
             "fluency": FluencyScorer(nlp=self.nlp),
             "grammar": GrammarScorer(nlp=self.nlp),
-            "topic": TopicScorer(nlp=None),  # Uses sentence transformer
+            "topic": TopicScorer(nlp=None, device=self.device),  # Uses sentence transformer
+            "coherence": CoherenceScorer(nlp=self.nlp),  # NEW: Semantic coherence
         }
 
-        print("✅ Reward function initialized with all scorers")
+        print("✅ Reward function initialized with all scorers (including coherence)")
 
     def score(
         self, exercise: Dict[str, Any], request: Dict[str, Any]
@@ -157,10 +173,23 @@ class ExerciseRewardFunction:
         topic_score, topic_errors = self.scorers["topic"].score(exercise, request)
         all_errors.extend(topic_errors)
 
-        # Total score
-        total = (
-            json_score + linguistic_score + cefr_score + fluency_score + grammar_score + topic_score
+        coherence_score, coherence_errors = self.scorers["coherence"].score(exercise, request)
+        all_errors.extend(coherence_errors)
+
+        # Total score (normalized to 100)
+        # JSON(15) + Linguistic(30) + CEFR(20) + Fluency(10) + Grammar(10) + Topic(10) + Coherence(10) = 105
+        raw_total = (
+            json_score
+            + linguistic_score
+            + cefr_score
+            + fluency_score
+            + grammar_score
+            + topic_score
+            + coherence_score
         )
+
+        # Normalize to 100 (105 max → 100)
+        total = min(100, (raw_total / 105) * 100)
 
         # Create breakdown
         breakdown = RewardBreakdown(
@@ -170,11 +199,36 @@ class ExerciseRewardFunction:
             fluency=fluency_score,
             grammar_correctness=grammar_score,
             topic_adherence=topic_score,
+            coherence=coherence_score,
             total=total,
             errors=all_errors,
         )
 
         return total, breakdown
+
+    def score_exercises(
+        self, exercises: List[Dict[str, Any]], request: Dict[str, Any]
+    ) -> Tuple[float, List[Tuple[float, RewardBreakdown]]]:
+        """
+        Score multiple exercises and return average score + individual breakdowns.
+
+        Args:
+            exercises: List of exercise dictionaries to score
+            request: Request context (same for all exercises)
+
+        Returns:
+            Tuple of (average_score, list of (score, breakdown) tuples)
+        """
+        results = []
+        total_score = 0.0
+
+        for exercise in exercises:
+            score, breakdown = self.score(exercise, request)
+            results.append((score, breakdown))
+            total_score += score
+
+        avg_score = total_score / len(exercises) if exercises else 0.0
+        return avg_score, results
 
 
 # Convenience function

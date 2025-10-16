@@ -68,26 +68,59 @@ def generate_training_requests(num_requests: int = 2000, output_path: str = None
     print(f"Generating {num_requests} training requests...")
     requests = []
 
+    # Common thematic topics for variety (beyond just nouns)
+    thematic_topics = [
+        "vita quotidiana",
+        "famiglia",
+        "cibo e cucina",
+        "viaggi",
+        "lavoro",
+        "scuola",
+        "sport",
+        "tempo libero",
+        "città",
+        "natura",
+        "salute",
+        "tecnologia",
+        "arte",
+        "musica",
+        "abbigliamento",
+        "casa",
+        "animali",
+        "feste",
+        "emozioni",
+        "meteo",
+        "trasporti",
+    ]
+
     for i in range(num_requests):
-        # Random CEFR level
-        level = random.choice(CEFR_LEVELS)
+        # Random CEFR level with realistic distribution (more A2/B1, less C2)
+        level = random.choices(
+            CEFR_LEVELS, weights=[15, 25, 25, 20, 10, 5], k=1  # Favor intermediate levels
+        )[0]
 
         # Get vocabulary for this level
         level_vocab = get_vocabulary_by_cefr(level, cumulative=True)
 
-        # Random grammar focus
-        grammar_focus = random.choice(GRAMMAR_FOCUSES)
+        # Random grammar focus with realistic distribution
+        # (more focus on tenses, less on advanced grammar)
+        grammar_weights = [20, 20, 15, 15, 10, 5, 5, 5, 3, 1, 1]  # Matches GRAMMAR_FOCUSES order
+        grammar_focus = random.choices(GRAMMAR_FOCUSES, weights=grammar_weights, k=1)[0]
 
-        # Pick a random topic word (noun) from level vocabulary
-        level_nouns = [n for n in vocab_by_pos["noun"] if n["word"] in level_vocab]
-        if level_nouns:
-            topic_word = random.choice(level_nouns)
-            topic = topic_word["word"]
+        # 70% specific noun topics, 30% thematic topics for better diversity
+        if random.random() < 0.7:
+            # Pick a random topic word (noun) from level vocabulary
+            level_nouns = [n for n in vocab_by_pos["noun"] if n["word"] in level_vocab]
+            if level_nouns:
+                topic_word = random.choice(level_nouns)
+                topic = topic_word["word"]
+            else:
+                topic = random.choice(thematic_topics)
         else:
-            topic = "general"
+            topic = random.choice(thematic_topics)
 
-        # Random number of questions (1-5 for variety)
-        num_exercises = random.randint(1, 5)
+        # Random number of questions (weighted toward 3-5 exercises)
+        num_exercises = random.choices([1, 2, 3, 4, 5], weights=[5, 10, 25, 30, 30], k=1)[0]
 
         # Random exercise types (1-3 types)
         num_types = random.randint(1, min(3, num_exercises))

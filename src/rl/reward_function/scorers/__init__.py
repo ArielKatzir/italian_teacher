@@ -2,6 +2,7 @@
 
 from .base import BaseScorer
 from .cefr_scorer import CEFRScorer
+from .coherence_scorer import CoherenceScorer
 from .fluency_scorer import FluencyScorer
 from .grammar_scorer import GrammarScorer
 from .json_scorer import JSONScorer
@@ -16,4 +17,5 @@ __all__ = [
     "FluencyScorer",
     "GrammarScorer",
     "TopicScorer",
+    "CoherenceScorer",
 ]

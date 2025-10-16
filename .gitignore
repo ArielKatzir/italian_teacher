@@ -129,6 +129,9 @@ data/datasets
 *.tsv
 *.json.gz
 *.parquet
+src/rl/training_requestsr1.json
+src/rl/validation_requests.json
+eval.json
 
 # Model checkpoints and adapters
 models/checkpoints/

@@ -55,12 +55,20 @@ class CEFRScorer(BaseScorer):
 
         score = 0.0
 
+        # Check if this is a fill-in-blank exercise (has blanks)
+        is_fill_in_blank = "___" in text or "_" * 3 in text
+
         # 1. Sentence length check (8 points)
         sentence_score = 8.0
         sentences = list(doc.sents)
         if sentences:
             avg_sent_length = sum(len(sent) for sent in sentences) / len(sentences)
             min_len, max_len = rules["sentence_length"]
+
+            # For fill-in-blank exercises, be more lenient with short sentences
+            if is_fill_in_blank:
+                # Reduce minimum length by 3 words for fill-in-blank
+                min_len = max(3, min_len - 3)
 
             if min_len <= avg_sent_length <= max_len:
                 # Perfect range
@@ -86,7 +94,8 @@ class CEFRScorer(BaseScorer):
 
         # 2. Vocabulary complexity (7 points) - Using comprehensive 16,887-word vocabulary
         vocab_score = 7.0
-        words = [token.text.lower() for token in doc if token.is_alpha and not token.is_stop]
+        # Use lemmas instead of word forms (e.g., "bambini" → "bambino", "mangiato" → "mangiare")
+        words = [token.lemma_.lower() for token in doc if token.is_alpha and not token.is_stop]
 
         if words:
             # Get cumulative vocabulary for level (from cache)
@@ -94,18 +103,23 @@ class CEFRScorer(BaseScorer):
             known_words = sum(1 for word in words if word in level_vocab)
             vocab_coverage = known_words / len(words) if words else 0
 
-            # Expect 70-90% coverage for appropriate level
-            if vocab_coverage >= 0.7:
-                vocab_score = 7.0
-            elif vocab_coverage >= 0.5:
-                vocab_score = 4.0
+            # STRICTER vocabulary expectations - encourage better level-appropriate vocab
+            if vocab_coverage >= 0.85:
+                vocab_score = 7.0  # Excellent - highly appropriate
+            elif vocab_coverage >= 0.7:
+                vocab_score = 5.0  # Good - mostly appropriate
                 errors.append(
-                    f"Vocabulary may be too advanced for {level} (coverage: {vocab_coverage:.0%})"
+                    f"Some advanced vocabulary for {level} (coverage: {vocab_coverage:.0%})"
                 )
-            else:
-                vocab_score = 0.0
+            elif vocab_coverage >= 0.5:
+                vocab_score = 2.0  # Moderate - too advanced
                 errors.append(
                     f"Vocabulary too advanced for {level} (coverage: {vocab_coverage:.0%})"
+                )
+            else:
+                vocab_score = 0.0  # Poor - very advanced
+                errors.append(
+                    f"Vocabulary much too advanced for {level} (coverage: {vocab_coverage:.0%})"
                 )
 
         score += vocab_score

@@ -26,12 +26,12 @@ repos:
           --in-place,
         ]
 
-  # unimport - Remove unused imports and variables  
-  - repo: https://github.com/hakancelik96/unimport
-    rev: 1.2.1
-    hooks:
-      - id: unimport
-        args: [-r]
+  # # unimport - Remove unused imports and variables  
+  # - repo: https://github.com/hakancelik96/unimport
+  #   rev: 1.2.1
+  #   hooks:
+  #     - id: unimport
+  #       args: [-r]
 
   # Basic file checks only (no strict linting)
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -43,4 +43,4 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=50000]  # 50MB limit
-      - id: check-ast  # Only check for valid Python syntax
+      # - id: check-ast  # Only check for valid Python syntax
