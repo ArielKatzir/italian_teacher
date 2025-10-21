@@ -1,0 +1,46 @@
+repos:
+  # Black - Python code formatter (relaxed)
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+        language_version: python3.12
+        args: [--line-length=100]  # More relaxed line length
+
+  # isort - Import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=100]
+
+  # autoflake - Remove unused variables and imports
+  - repo: https://github.com/pycqa/autoflake
+    rev: v2.3.1
+    hooks:
+      - id: autoflake
+        args: [
+          --remove-all-unused-imports,
+          --remove-unused-variables,
+          --remove-duplicate-keys,
+          --in-place,
+        ]
+
+  # # unimport - Remove unused imports and variables  
+  # - repo: https://github.com/hakancelik96/unimport
+  #   rev: 1.2.1
+  #   hooks:
+  #     - id: unimport
+  #       args: [-r]
+
+  # Basic file checks only (no strict linting)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json  
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=50000]  # 50MB limit
+      # - id: check-ast  # Only check for valid Python syntax

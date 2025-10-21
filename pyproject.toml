@@ -1,0 +1,120 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "italian-teacher"
+version = "0.1.0"
+description = "Multi-agent AI system for personalized Italian language learning"
+readme = "README.md"
+authors = [
+    {name = "Italian Teacher Team"},
+]
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0.0",
+    "transformers>=4.30.0",
+    "peft>=0.4.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+    "pydantic>=2.0.0",
+    "redis>=4.5.0",
+    "asyncio-mqtt>=0.13.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.11.0",
+    "httpx>=0.24.0",
+    "python-multipart>=0.0.6",
+    "PyYAML>=6.0.0",
+    "structlog>=23.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.11.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.4.0",
+    "pre-commit>=3.3.0",
+    "bandit>=1.8.0",
+    "autoflake>=2.2.0",
+    "unimport>=1.2.0",
+]
+training = [
+    "datasets>=2.13.0",
+    "wandb>=0.15.0",
+    "accelerate>=0.20.0",
+    "evaluate>=0.4.0",
+]
+audio = [
+    "speechrecognition>=3.10.0",
+    "pydub>=0.25.0",
+    "gtts>=2.3.0",
+]
+
+[project.scripts]
+italian-teacher = "italian_teacher.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 100
+known_first_party = ["italian_teacher"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short --strict-markers"
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests", 
+    "slow: Slow running tests",
+    "ml: Tests requiring ML models",
+    "api: API tests",
+    "asyncio: Async tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+testmon_ignore_files = [
+    "tests/conftest.py",
+    "tests/test_helpers.py",
+]

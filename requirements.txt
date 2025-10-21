@@ -1,0 +1,32 @@
+# Core dependencies - auto-generated from pyproject.toml
+# Install with: pip install -r requirements.txt
+
+# For development, use: pip install -e ".[dev,training,audio]"
+
+torch>=2.0.0
+transformers>=4.30.0
+huggingface_hub>=0.20.0
+bitsandbytes>=0.41.0  # For 4-bit quantization
+accelerate>=0.24.0    # For device mapping
+peft>=0.4.0
+fastapi>=0.100.0
+uvicorn>=0.22.0
+pydantic>=2.0.0
+pyyaml>=6.0.0
+redis>=4.5.0
+asyncio-mqtt>=0.13.0
+sqlalchemy>=2.0.0
+aiosqlite>=0.19.0     # For async SQLite support
+alembic>=1.11.0
+httpx>=0.24.0
+aiohttp>=3.9.0        # For async HTTP requests to Colab inference API
+python-multipart>=0.0.6
+outlines>=0.0.46  # For guided generation and structured output
+typer>=0.9.0          # For CLI applications
+rich>=13.0.0          # For beautiful CLI output
+
+# RL Training dependencies (Phase 4.2)
+trl>=0.8.0            # Transformers Reinforcement Learning (GRPO, DPO, PPO)
+spacy>=3.7.0          # Italian NLP for reward function
+sentence-transformers>=2.0.0  # Semantic similarity for topic adherence
+numpy>=1.20.0,<2.0.0  # Required by spacy/sentence-transformers (compatibility)
