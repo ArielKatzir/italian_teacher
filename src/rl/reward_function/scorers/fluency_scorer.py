@@ -1,21 +1,19 @@
 """
 Fluency and naturalness scorer.
 
-Validates natural language flow and construction (0-10 points).
-Uses rule-based checks + optional LLM for subtle naturalness issues.
+Validates natural language flow and construction.
+Uses rule-based checks and an LLM for subtle naturalness issues.
 """
 
-import os
 from collections import Counter
 from typing import Any, Dict, List, Tuple
 
 import spacy
 
-from .base import BaseScorer
-from .text_utils import extract_italian_text, is_exclamation_or_idiom, is_fill_in_blank
+from .base_llm_scorer import BaseLLMScorer
+from .text_utils import extract_italian_text, is_exclamation_or_idiom
 
-
-class FluencyScorer(BaseScorer):
+class FluencyScorer(BaseLLMScorer):
     """
     Scores fluency and naturalness (0-10 points).
 
@@ -23,31 +21,27 @@ class FluencyScorer(BaseScorer):
     - Fragmented sentences (missing verbs)
     - Excessive word repetition
     - Very short or incomplete responses
-    - Unnatural patterns (all caps, excessive punctuation)
-    - Optional: LLM-based naturalness check for subtle issues
+    - Unnatural patterns (all caps, etc.)
+    - LLM-based naturalness check for subtle issues
     """
 
-    def __init__(self, nlp: spacy.language.Language, use_llm: bool = False):
-        super().__init__(nlp)
-        self.use_llm = use_llm
-        self.client = None
+    def __init__(self, nlp: spacy.language.Language, use_llm: bool = False, disabled: bool = False):
+        # Initialize BaseLLMScorer only if LLM is used and not disabled
+        if use_llm and not disabled:
+            super().__init__()
+            print("  ✅ FluencyScorer: LLM checking is enabled.")
+        else:
+            # If not using LLM, we don't need the BaseLLMScorer's OpenAI client
+            self.nlp = nlp
+        
+        self.use_llm = use_llm and not disabled
+        self.disabled = disabled
 
-        # Check if OpenAI API is available for advanced checking
-        if self.use_llm:
-            try:
-                from openai import OpenAI
-
-                self.client = OpenAI()
-                print("  ✅ FluencyScorer: LLM checking is enabled.")
-            except ImportError:
-                self.use_llm = False
-                print("  ⚠️ FluencyScorer: 'openai' package not installed. Disabling LLM check.")
-            except Exception:
-                self.use_llm = False
-                print("  ⚠️ FluencyScorer: OpenAI API key not found or invalid. Disabling LLM check.")
-
-    def score(self, exercise: Dict[str, Any], request: Dict[str, Any]) -> Tuple[float, List[str]]:
+    async def score(self, exercise: Dict[str, Any], request: Dict[str, Any], semaphore=None) -> Tuple[float, List[str]]:
         """Score fluency and naturalness."""
+        if self.disabled:
+            return 0.0, ["Fluency scorer is disabled."]
+
         errors = []
         text = extract_italian_text(exercise, self.nlp)
 
@@ -57,15 +51,13 @@ class FluencyScorer(BaseScorer):
         score = 10.0
         doc = self.nlp(text)
 
-        # Check context
-        is_fill_blank = is_fill_in_blank(text)
-
         # 1. Check for sentence fragments (no verbs) - with intelligent exceptions
         sentences = list(doc.sents)
         for sent in sentences:
             has_verb = any(token.pos_ == "VERB" for token in sent)
             # Skip penalization if:
             # - fill-in-blank (the blank IS the missing verb)
+            is_fill_blank = "___" in exercise.get("question", "")
             # - valid exclamation/idiom
             # - very short (< 4 words)
             if not has_verb and len(sent) > 3:
@@ -101,78 +93,40 @@ class FluencyScorer(BaseScorer):
 
         # 5. Optional: Use LLM for subtle naturalness issues (if score still high)
         if self.use_llm and score >= 7.0:
-            llm_score, llm_errors = self._check_fluency_with_llm(text, exercise)
+            # Use the batched scoring method from BaseLLMScorer
+            llm_results = await self.score_batch([exercise], request, semaphore)
+            llm_score, llm_errors = llm_results[0]
+
             # LLM can only reduce score for subtle issues
             if llm_score < score:
                 score = llm_score
                 errors.extend(llm_errors)
 
-        score = max(0, score)
-        return score, errors
+        return max(0, score), errors
 
-    def _check_fluency_with_llm(
-        self, text: str, exercise: Dict[str, Any]
-    ) -> Tuple[float, List[str]]:
-        """
-        Use OpenAI API to check subtle naturalness issues.
+    def get_prompt(self, exercises: List[Dict[str, Any]], request: Dict[str, Any]) -> str:
+        """Generates the prompt for the LLM fluency check."""
+        processed_exercises = []
+        for i, ex in enumerate(exercises):
+            completed_text = extract_italian_text(ex, self.nlp)
+            processed_exercises.append({"id": i, "text": completed_text})
 
-        This catches issues like:
-        - Awkward word order
-        - Unnatural collocations
-        - Context-inappropriate language register
-        - Stilted or robotic phrasing
-        """
-        try:
-            prompt = f"""You are evaluating an Italian language exercise for fluency and naturalness.
+        exercises_json_string = json.dumps(processed_exercises, indent=2)
 
-Exercise type: {exercise.get('type', 'unknown')}
-Question: {exercise.get('question', '')}
-Answer: {exercise.get('correct_answer', exercise.get('answer', ''))}
+        return f"""You are evaluating Italian text for fluency and naturalness.
 
-Rate the Italian text on a scale of 0-10 for fluency and naturalness:
+Here is a batch of texts to evaluate:
+{exercises_json_string}
+
+For each text, rate it on a scale of 0-10 for fluency and naturalness:
 10 = Perfectly natural, something a native speaker would say
 7-9 = Natural with minor awkwardness
 4-6 = Understandable but unnatural or stilted
 0-3 = Very awkward or robotic
 
-Consider:
-- Would a native Italian speaker phrase it this way?
-- Is the word order natural?
-- Are collocations appropriate?
-- Is the language register appropriate for the context?
-
 Respond ONLY with a JSON object:
 {{"score": <number 0-10>, "issue": "<brief explanation if score < 8, empty string otherwise>"}}"""
-
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",  # Fast and cheap
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-                max_tokens=100,
-            )
-
-            result_text = response.choices[0].message.content.strip()
-
-            # Parse JSON response
-            import json
-
-            result = json.loads(result_text)
-
-            llm_score = result.get("score", 10.0)
-            issue = result.get("issue", "")
-
-            errors = []
-            if llm_score < 8 and issue:
-                errors.append(f"Fluency issue: {issue}")
-
-            return llm_score, errors
-
-        except Exception as e:
-            # If LLM check fails, don't penalize - return neutral score
-            print(f"  ⚠️ LLM fluency check failed: {e}")
-            return 10.0, []
-
-    # Note: _extract_italian_text removed - now using shared extract_italian_text from text_utils
+"""
 
     @property
     def max_score(self) -> float:

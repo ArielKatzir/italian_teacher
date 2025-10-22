@@ -88,37 +88,54 @@ class BaseLLMScorer(BaseScorer):
                         "required": ["scores"],
                     }
                     
+                    # --- Fallback Logic Implementation ---
+                    turbo_models = ["gpt-3.5-turbo", "gpt-3.5-turbo-0125", "gpt-3.5-turbo-1106", "gpt-3.5-turbo-16k"]
+                    random.shuffle(turbo_models) # Distribute load across turbo models
+
+                    primary_model = getattr(self, "model", None)
+                    if primary_model == "gpt-4o-mini":
+                        models_to_try = [primary_model] + turbo_models
+                    else:
+                        # Default to turbo models for scorers like Coherence, Fluency, etc.
+                        models_to_try = turbo_models
+
                     response = None
+                    model_used = ""
 
-                    # Use the model specified by the child class, or default to gpt-4o-mini.
-                    model_to_use = getattr(self, "model", "gpt-4o-mini")
+                    for model in models_to_try:
+                        try:
+                            api_kwargs = {
+                                "model": model,
+                                "messages": messages,
+                                "timeout": 20.0,
+                                "temperature": 0,
+                                "tools": [
+                                    {
+                                        "type": "function",
+                                        "function": {
+                                            "name": "record_scores",
+                                            "description": "Records the scores for a batch of exercises.",
+                                            "parameters": json_output_schema,
+                                        },
+                                    }
+                                ],
+                                "tool_choice": {"type": "function", "function": {"name": "record_scores"}},
+                            }
+                            response = await self.client.chat.completions.create(**api_kwargs)
+                            model_used = model
+                            break # Success, exit the loop
+                        except httpx.HTTPStatusError as e:
+                            if e.response.status_code == 429: # Rate limit error
+                                print(f"  ⚠️ Rate limit for {model}. Trying next model...")
+                                continue
+                            else:
+                                raise # Re-raise other HTTP errors
+                        except Exception as e:
+                            print(f"  ⚠️ {model} failed ({e}). Trying next model...")
+                            continue
 
-                    try:
-                        api_kwargs = {
-                            "model": model_to_use,
-                            "messages": messages,
-                            "timeout": 20.0,
-                            "temperature": 0,
-                            "tools": [
-                                {
-                                    "type": "function",
-                                    "function": {
-                                        "name": "record_scores",
-                                        "description": "Records the scores for a batch of exercises.",
-                                        "parameters": json_output_schema,
-                                    },
-                                }
-                            ],
-                            "tool_choice": {"type": "function", "function": {"name": "record_scores"}},
-                        }
-
-                        response = await self.client.chat.completions.create(**api_kwargs)
-
-                    except Exception as e:
-                        print(f"  ⚠️ {model_to_use} failed ({e}). This batch will use neutral scores after retries.")
-                
                     if response is None:
-                        raise Exception(f"LLM model {model_to_use} failed to return a response.")
+                        raise Exception(f"All LLM models failed for {self.name} scorer.")
 
                     message = response.choices[0].message
 
@@ -137,7 +154,7 @@ class BaseLLMScorer(BaseScorer):
                     for i, data in enumerate(scores_data):
                         score = float(data.get("score", 5.0))
                         issue = data.get("issue", "")
-                        errors = [f"{self.name} issue ({model_to_use}): {issue}"] if score < 8 and issue else []
+                        errors = [f"{self.name} issue ({model_used}): {issue}"] if score < 8 and issue else []
                         final_results[i] = (score, errors)
 
                     break  # Success, exit retry loop
@@ -147,7 +164,6 @@ class BaseLLMScorer(BaseScorer):
                     raw_output = result_text if 'result_text' in locals() and result_text else "Empty String"
                     sent_prompt = user_prompt if 'user_prompt' in locals() else "PROMPT NOT GENERATED" # type: ignore
                     print(f"  ⚠️ {self.name} scorer attempt {attempt + 1} failed: {e}")
-                    print(f"     Raw {model_used} Output: '{raw_output}...'")
                     print(f"     Prompt Sent:\n---\n{sent_prompt}...\n---")
                     if attempt == 1:
                         print(f"  Exhausted retries for {self.name}. Using neutral scores.")

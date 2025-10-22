@@ -16,6 +16,9 @@ import json5
 import torch
 from openai import AsyncOpenAI
 
+from typing import List, Dict
+
+
 
 class AsyncMultiReward:
     """
@@ -30,33 +33,15 @@ class AsyncMultiReward:
     def __init__(
         self,
         reward_fn,
-        weights=None,
         use_openai=True,
-        openai_batch_size=20,
-        openai_timeout=60,  # New parameter for OpenAI client timeout
-        soft_penalties=True,
     ):
         self.reward_fn = reward_fn
         self.use_openai = use_openai
-        self.openai_batch_size = openai_batch_size
-        self.soft_penalties = soft_penalties
-
-        self.openai_timeout = openai_timeout  # Store timeout
-        self.weights = weights or {
-            "grammar": 2.0,
-            "coherence": 2.5,
-            "topic": 1.5,
-            "quality": 1.0,
-            "diversity": 0.5,
-        }
 
         if use_openai and os.environ.get("OPENAI_API_KEY"):
-            self.openai_client = AsyncOpenAI(
-                api_key=os.environ["OPENAI_API_KEY"], timeout=self.openai_timeout
-            )
-            self.openai_semaphore = asyncio.Semaphore(self.openai_batch_size)
+            # The semaphore is now managed inside ExerciseRewardFunction
+            pass
         else:
-            self.openai_client = None
             print("⚠️  OpenAI API not available - using rule-based coherence")
 
     def __call__(
@@ -125,7 +110,7 @@ class AsyncMultiReward:
             if success and exercises:
                 # The new `score_exercises` method is highly efficient.
                 # It handles both CPU and batched LLM scoring internally.
-                score_tasks.append(self.reward_fn.score_exercises(exercises, req, self.openai_semaphore))
+                score_tasks.append(self.reward_fn.score_exercises(exercises, req, self.reward_fn.semaphore))
             else:
                 # For failed parses, create a dummy task that returns a penalty score.
                 async def dummy_task():
@@ -137,9 +122,7 @@ class AsyncMultiReward:
 
         # --- Step 3: Compute CPU-bound scores and aggregate all results ---
         print(f"⏳ Step 3/3: Computing CPU-bound rewards and aggregating results...")
-        for i, (avg_score, individual_results) in enumerate(
-            tqdm(parsed_data, desc="Aggregating Rewards", leave=False)
-        ):
+        for i in tqdm(range(len(parsed_data)), desc="Aggregating Rewards", leave=False):
             exercises, req, success, _ = parsed_data[i]
             avg_score, individual_results = all_results[i]
 
@@ -147,42 +130,29 @@ class AsyncMultiReward:
                 all_rewards.append(0.0)
                 continue
 
-            # Extract scores from the detailed breakdowns
-            grammar_scores = [res[1].grammar_correctness / self.reward_fn.scorers['grammar'].max_score for res in individual_results]
-            coherence_scores = [res[1].coherence / self.reward_fn.scorers['coherence'].max_score for res in individual_results]
-            topic_scores = [res[1].topic_adherence / self.reward_fn.scorers['topic'].max_score for res in individual_results]
-
-            # Re-calculate the composite quality score from the breakdown components
-            quality_scores = []
-            for _, breakdown in individual_results:
-                ling = breakdown.linguistic_quality / self.reward_fn.scorers['linguistic'].max_score
-                flu = breakdown.fluency / self.reward_fn.scorers['fluency'].max_score
-                exq = breakdown.exercise_quality / self.reward_fn.scorers['quality'].max_score
-                # The composite quality score combines multiple aspects
-                qual = (ling * 0.4) + (flu * 0.3) + (exq * 0.3)
-                if self.soft_penalties:
-                    qual = max(0.1, qual)
-                quality_scores.append(qual)
-
-            # Compute CPU-bound scores (topic, quality, etc.)
-            diversity_score = self._compute_diversity_score(exercises, req)
-
-            # Aggregate all scores
-            final_scores = {
-                "grammar": sum(grammar_scores) / len(grammar_scores),
-                "coherence": sum(coherence_scores) / len(coherence_scores),
-                "topic": sum(topic_scores) / len(topic_scores),
-                "quality": sum(quality_scores) / len(quality_scores),
-                "diversity": diversity_score,
-            }
-
-            # Calculate final weighted reward
-            total_reward = sum(final_scores[k] * self.weights[k] for k in final_scores)
-            all_rewards.append(total_reward)
+            # Use the final, authoritative score calculated by ExerciseRewardFunction
+            all_rewards.append(avg_score)
 
             # Update stats for logging
-            for k, v in final_scores.items():
-                stats[k].append(v)
+            # This part is for logging only and does not affect the reward.
+            # Helper to safely calculate average normalized score for a component
+            def get_avg_norm_score(component_name: str, attribute_name: str):
+                scorer = self.reward_fn.scorers.get(component_name)
+                if not scorer or not individual_results: # Check if scorer is active and results exist
+                    return 0.0
+                
+                total_score = sum(getattr(b, attribute_name) for _, b in individual_results)
+                max_possible_score = len(individual_results) * scorer.max_score
+                return total_score / max_possible_score if max_possible_score > 0 else 0.0
+
+            # Use the helper to safely populate stats
+            stats["grammar"].append(get_avg_norm_score("grammar", "grammar_correctness"))
+            stats["coherence"].append(get_avg_norm_score("coherence", "coherence"))
+            stats["topic"].append(get_avg_norm_score("topic", "topic_adherence"))
+            stats["quality"].append(get_avg_norm_score("quality", "exercise_quality"))
+            
+            # Diversity is calculated differently
+            stats["diversity"].append(self._compute_diversity_score(exercises, req))
 
         # Log with timing
         elapsed = time.time() - start_time
@@ -245,29 +215,34 @@ class AsyncMultiReward:
         # Attempt to parse with standard json, then json5 as a fallback
         try:
             data = json.loads(json_str)
-            return data if isinstance(data, list) else [data]
         except json.JSONDecodeError:
             try:
                 data = json5.loads(json_str)
-                return data if isinstance(data, list) else [data]
             except Exception as e:
                 # If both parsers fail, raise an error to be caught upstream
                 raise ValueError(
                     f"Failed to parse JSON with both standard and json5 parsers. Error: {e}"
                 )
 
+        # Post-parsing validation: Ensure it's a list of dictionaries
+        if not isinstance(data, list):
+            raise ValueError("Parsed JSON is not a list.")
+        if not all(isinstance(item, dict) for item in data):
+            raise ValueError("Parsed list contains non-dictionary items.")
+        
+        return data
+
     def _log(self, stats, rewards, elapsed=None):
         if elapsed:
-            print(
-                f"\n🎯 Multi-Reward (Async OpenAI, batch={self.openai_batch_size}, {elapsed:.1f}s):"
-            )
+            print(f"\n🎯 Reward calculation complete ({elapsed:.1f}s):")
         else:
-            print(f"\n🎯 Multi-Reward (Async OpenAI, batch={self.openai_batch_size}):")
+            print(f"\n🎯 Reward calculation complete:")
+
         for name, vals in stats.items():
             if vals:
-                w = self.weights.get(name, 1.0)
                 print(
-                    f"   {name.capitalize():10s}: min={min(vals):.3f}, max={max(vals):.3f}, avg={sum(vals)/len(vals):.3f} (weight={w})"
+                    # Scale individual stats to be on a 0-100 scale for consistent logging with TOTAL
+                    f"   {name.capitalize():10s}: min={min(vals)*100:.1f}, max={max(vals)*100:.1f}, avg={(sum(vals)/len(vals))*100:.1f}"
                 )
         if rewards:
             print(
@@ -277,19 +252,13 @@ class AsyncMultiReward:
 
 def create_async_multi_reward(
     reward_fn,
-    use_openai=True,
-    openai_batch_size=20,
-    openai_timeout=60,  # New parameter
-    soft_penalties=False,
+    use_openai=True, # This parameter is now used to configure the reward_fn itself
 ):
     """
     Create async multi-reward with parallel OpenAI.
 
     Args:
         reward_fn: ExerciseRewardFunction instance
-        use_openai: If True, uses OpenAI for coherence (requires API key)
-        openai_batch_size: Batch size for parallel OpenAI calls (10-30)
-        soft_penalties: If True, uses 0.1 instead of 0 for failures
 
     Performance:
         - With OpenAI batch=20: ~1.7 hours for 1000 samples
@@ -301,7 +270,4 @@ def create_async_multi_reward(
     return AsyncMultiReward(
         reward_fn=reward_fn,
         use_openai=use_openai,
-        openai_batch_size=openai_batch_size,
-        openai_timeout=openai_timeout,  # Pass timeout
-        soft_penalties=soft_penalties,
     )

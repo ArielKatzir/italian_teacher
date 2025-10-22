@@ -103,6 +103,7 @@ class ExerciseRewardFunction:
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
         disabled_scorers: List[str] = None,
         fluency_use_llm: bool = False, # Keep specific flag for convenience
+        concurrency_limit: int = 20, # New concurrency limit
     ):
         """
         Initialize modular reward function.
@@ -112,6 +113,7 @@ class ExerciseRewardFunction:
             device: The device to run heavy models on ('cuda' or 'cpu').
             disabled_scorers: A list of scorer names to disable (e.g., ["fluency", "cefr"]).
             fluency_use_llm: Specifically enable the LLM component of the FluencyScorer.
+            concurrency_limit: Max number of concurrent OpenAI API calls.
         """
         try:
             # Load Italian NLP model
@@ -125,6 +127,7 @@ class ExerciseRewardFunction:
 
         self.device = device
         print(f"Reward function will use device: {self.device}")
+        self.semaphore = asyncio.Semaphore(concurrency_limit)
 
         # Initialize individual scorers
         print("Initializing scorers...")
@@ -133,7 +136,7 @@ class ExerciseRewardFunction:
             "quality": ExerciseQualityScorer(nlp=self.nlp),  # Context validation, redundancy
             "linguistic": LinguisticScorer(nlp=self.nlp),
             "cefr": CEFRScorer(),  # Fully LLM-based, does not use spaCy
-            "fluency": FluencyScorer(nlp=self.nlp, use_llm=fluency_use_llm),
+            "fluency": FluencyScorer(nlp=self.nlp, use_llm=fluency_use_llm, disabled="fluency" in disabled_scorers),
             "grammar": GrammarScorer(),  # Fully LLM-based, does not use spaCy
             "coherence": CoherenceScorer(),  # Fully LLM-based, does not use spaCy
             "topic": TopicScorer(nlp=None, device=self.device),  # Uses sentence transformer
@@ -180,63 +183,49 @@ class ExerciseRewardFunction:
 
         loop = asyncio.get_running_loop()
 
-        # --- Run CPU-bound tasks in a thread pool executor to avoid blocking ---
-        # The executor runs these synchronous functions in separate threads.
-        cpu_tasks = [
-            loop.run_in_executor(None, self.scorers["json"].score, exercise, request) if "json" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            loop.run_in_executor(None, self.scorers["quality"].score, exercise, request) if "quality" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            loop.run_in_executor(None, self.scorers["linguistic"].score, exercise, request) if "linguistic" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            loop.run_in_executor(None, self.scorers["fluency"].score, exercise, request) if "fluency" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            loop.run_in_executor(None, self.scorers["topic"].score, exercise, request) if "topic" in self.scorers else asyncio.sleep(0, (0.0, [])),
-        ]
+        # --- Create a task for each active scorer ---
+        tasks = {}
+        for name, scorer in self.scorers.items():
+            # CPU-bound scorers run in a thread pool to avoid blocking
+            if name in ["json", "quality", "linguistic", "topic"]:
+                tasks[name] = loop.run_in_executor(None, scorer.score, exercise, request)
+            # I/O-bound (LLM) or async scorers run directly
+            else:
+                tasks[name] = scorer.score(exercise, request, semaphore)
 
-        # --- Run I/O-bound (network) tasks directly on the event loop ---
-        # These now use the inefficient `score` method which wraps `score_batch` for a single item.
-        # This is correct for scoring a single exercise.
-        io_tasks = [
-            self.scorers["grammar"].score(exercise, request, semaphore) if "grammar" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            self.scorers["coherence"].score(exercise, request, semaphore) if "coherence" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            self.scorers["cefr"].score(exercise, request, semaphore) if "cefr" in self.scorers else asyncio.sleep(0, (0.0, [])),
-        ]
+        # --- Gather results concurrently ---
+        task_results = await asyncio.gather(*tasks.values())
+        
+        # --- Map results back to scorer names ---
+        results_map = dict(zip(tasks.keys(), task_results))
 
-        # --- Gather results from all tasks concurrently ---
-        results = await asyncio.gather(*(cpu_tasks + io_tasks))
+        # --- Safely extract scores and errors ---
+        def get_score(name):
+            return results_map.get(name, (0.0, []))
 
-        # Unpack results
-        (json_score, json_errors)           = results[0]
-        (quality_score, quality_errors)     = results[1]
-        (linguistic_score, linguistic_errors) = results[2]
-        (fluency_score, fluency_errors)     = results[3]
-        (topic_score, topic_errors)         = results[4]
-        (grammar_score, grammar_errors)     = results[5]
-        (coherence_score, coherence_errors) = results[6]
-        (cefr_score, cefr_errors)           = results[7]
+        json_score, json_errors = get_score("json")
+        quality_score, quality_errors = get_score("quality")
+        linguistic_score, linguistic_errors = get_score("linguistic")
+        cefr_score, cefr_errors = get_score("cefr")
+        fluency_score, fluency_errors = get_score("fluency")
+        grammar_score, grammar_errors = get_score("grammar")
+        coherence_score, coherence_errors = get_score("coherence")
+        topic_score, topic_errors = get_score("topic")
 
-        all_errors.extend(json_errors)
-        all_errors.extend(quality_errors)
-        all_errors.extend(linguistic_errors)
-        all_errors.extend(fluency_errors)
-        all_errors.extend(grammar_errors)
-        all_errors.extend(coherence_errors)
-        all_errors.extend(topic_errors)
-
-        # Total score (normalized to 100)
-        # JSON(15) + Quality(30) + Linguistic(25) + CEFR(20) + Fluency(10) + Grammar(10) + Coherence(10) + Topic(10) = 130
-        raw_total = (
-            json_score
-            + quality_score
-            + linguistic_score
-            + cefr_score
-            + fluency_score
-            + grammar_score
-            + coherence_score
-            + topic_score
+        # --- Aggregate errors and calculate total score ---
+        all_errors = (
+            json_errors + quality_errors + linguistic_errors + cefr_errors +
+            fluency_errors + grammar_errors + coherence_errors + topic_errors
         )
 
-        # Normalize to 100 (130 max → 100)
-        total = min(100, (raw_total / self.max_score) * 100) if self.max_score > 0 else 0.0 # self.max_score is dynamic
+        raw_total = sum([
+            json_score, quality_score, linguistic_score, cefr_score,
+            fluency_score, grammar_score, coherence_score, topic_score
+        ])
 
-        # Create breakdown
+        total = min(100, (raw_total / self.max_score) * 100) if self.max_score > 0 else 0.0
+
+        # --- Create final breakdown ---
         breakdown = RewardBreakdown(
             json_validity=json_score,
             exercise_quality=quality_score,
@@ -247,68 +236,9 @@ class ExerciseRewardFunction:
             coherence=coherence_score,
             topic_adherence=topic_score,
             total=total,
-            errors=all_errors,
+            errors=list(filter(None, all_errors)), # Filter out empty error strings
         )
 
-        return total, breakdown
-
-    async def score_cpu_only(
-        self, exercise: Dict[str, Any], request: Dict[str, Any]
-    ) -> Tuple[float, RewardBreakdown]:
-        """
-        Scores an exercise using only CPU-bound scorers.
-        This is designed to be run in a thread pool without blocking the main event loop.
-        """
-        all_errors = []
-
-        loop = asyncio.get_running_loop()
-
-        # --- Run CPU-bound tasks in a thread pool executor ---
-        cpu_tasks = [
-            loop.run_in_executor(None, self.scorers["json"].score, exercise, request) if "json" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            loop.run_in_executor(None, self.scorers["quality"].score, exercise, request) if "quality" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            loop.run_in_executor(None, self.scorers["linguistic"].score, exercise, request) if "linguistic" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            loop.run_in_executor(None, self.scorers["fluency"].score, exercise, request) if "fluency" in self.scorers else asyncio.sleep(0, (0.0, [])),
-            loop.run_in_executor(None, self.scorers["topic"].score, exercise, request) if "topic" in self.scorers else asyncio.sleep(0, (0.0, [])),
-        ]
-
-        # --- Gather results from all CPU tasks ---
-        results = await asyncio.gather(*cpu_tasks)
-
-        # Unpack results
-        (json_score, json_errors) = results[0]
-        (quality_score, quality_errors) = results[1]
-        (linguistic_score, linguistic_errors) = results[2]
-        (fluency_score, fluency_errors) = results[3]
-        (topic_score, topic_errors) = results[4]
-
-        all_errors.extend(json_errors)
-        all_errors.extend(quality_errors)
-        all_errors.extend(linguistic_errors)
-        all_errors.extend(fluency_errors)
-        all_errors.extend(topic_errors)
-
-        # The grammar score is handled separately by the async worker pool
-        grammar_score = 0.0
-        cefr_score = 0.0 # Placeholder
-
-        raw_total = (
-            json_score + quality_score + linguistic_score + fluency_score + topic_score
-        )
-        total = min(100, (raw_total / self.max_score) * 100) if self.max_score > 0 else 0.0 # self.max_score is dynamic
-
-        breakdown = RewardBreakdown(
-            json_validity=json_score,
-            exercise_quality=quality_score,
-            linguistic_quality=linguistic_score,
-            cefr_alignment=cefr_score,
-            fluency=fluency_score,
-            grammar_correctness=grammar_score,  # Placeholder
-            coherence=0.0,  # Placeholder
-            topic_adherence=topic_score,
-            total=total,
-            errors=all_errors,
-        )
         return total, breakdown
 
     async def score_exercises(
@@ -330,12 +260,20 @@ class ExerciseRewardFunction:
         if not exercises:
             return 0.0, []
 
-        # --- Efficiently score a batch of exercises ---
-        # 1. Run all CPU-bound scorers for all exercises in parallel
-        cpu_tasks = [self.score_cpu_only(ex, request) for ex in exercises]
-        cpu_results = await asyncio.gather(*cpu_tasks)
+        # --- 1. Run all CPU-bound scorers for all exercises ---
+        # This is simplified. We'll run them per exercise for now.
+        # A more advanced implementation could batch these if the scorers support it.
+        cpu_scorers = {name: scorer for name, scorer in self.scorers.items() if name in ["json", "quality", "linguistic", "topic"]}
+        cpu_results_by_exercise = [{} for _ in exercises]
+        
+        loop = asyncio.get_running_loop()
+        for name, scorer in cpu_scorers.items():
+            tasks = [loop.run_in_executor(None, scorer.score, ex, request) for ex in exercises]
+            results = await asyncio.gather(*tasks)
+            for i, result in enumerate(results):
+                cpu_results_by_exercise[i][name] = result
 
-        # Run batch-level JSON checks (e.g., type diversity)
+        # --- 2. Run batch-level JSON checks ---
         batch_json_score = 0.0
         batch_json_errors = []
         if "json" in self.scorers:
@@ -343,42 +281,49 @@ class ExerciseRewardFunction:
             # Apply this batch penalty to all exercises in the breakdown
 
 
-        # 2. Run all I/O-bound (LLM) scorers in a single batched call per scorer
+        # --- 3. Run all I/O-bound (LLM) scorers in a single batched call per scorer ---
         io_tasks = [
             self.scorers["grammar"].score_batch(exercises, request, semaphore) if "grammar" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
             self.scorers["coherence"].score_batch(exercises, request, semaphore) if "coherence" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
             self.scorers["cefr"].score_batch(exercises, request, semaphore) if "cefr" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
+            self.scorers["fluency"].score_batch(exercises, request, semaphore) if "fluency" in self.scorers and self.scorers["fluency"].use_llm else asyncio.sleep(0, [(10.0, [])] * len(exercises)),
         ]
-        grammar_results, coherence_results, cefr_results = await asyncio.gather(*io_tasks)
+        grammar_results, coherence_results, cefr_results, fluency_results = await asyncio.gather(*io_tasks)
 
-        # 3. Combine the results
+        # --- 4. Combine all results for each exercise ---
         results = []
-        for i, (cpu_score, cpu_breakdown) in enumerate(cpu_results):
-            cpu_breakdown.grammar_correctness, grammar_errors = grammar_results[i]
-            cpu_breakdown.coherence, coherence_errors = coherence_results[i]
-            cpu_breakdown.cefr_alignment, cefr_errors = cefr_results[i]
-            
-            # Add batch-level JSON score and errors to each exercise's breakdown
-            cpu_breakdown.json_validity += batch_json_score
-            cpu_breakdown.errors.extend(batch_json_errors)
+        for i in range(len(exercises)):
+            # Get CPU scores
+            json_score, json_errors = cpu_results_by_exercise[i].get("json", (0.0, []))
+            quality_score, quality_errors = cpu_results_by_exercise[i].get("quality", (0.0, []))
+            linguistic_score, linguistic_errors = cpu_results_by_exercise[i].get("linguistic", (0.0, []))
+            topic_score, topic_errors = cpu_results_by_exercise[i].get("topic", (0.0, []))
 
-            # --- COMPLETE THE SCORE CALCULATION ---
-            # 1. Add new errors
-            cpu_breakdown.errors.extend(grammar_errors)
-            cpu_breakdown.errors.extend(coherence_errors)
-            cpu_breakdown.errors.extend(cefr_errors)
+            # Get IO scores
+            grammar_score, grammar_errors = grammar_results[i]
+            coherence_score, coherence_errors = coherence_results[i]
+            cefr_score, cefr_errors = cefr_results[i]
+            fluency_score, fluency_errors = fluency_results[i]
 
-            # 2. Recalculate the raw total score
-            raw_total = ( # Recalculate with updated json_validity
-                cpu_breakdown.json_validity + cpu_breakdown.exercise_quality +
-                cpu_breakdown.linguistic_quality + cpu_breakdown.fluency +
-                cpu_breakdown.topic_adherence + cpu_breakdown.grammar_correctness +
-                cpu_breakdown.coherence + cpu_breakdown.cefr_alignment
+            # Apply batch-level JSON penalty
+            json_score += batch_json_score
+
+            # Aggregate all scores and errors
+            all_errors = list(filter(None, json_errors + quality_errors + linguistic_errors + topic_errors + grammar_errors + coherence_errors + cefr_errors + fluency_errors + batch_json_errors))
+
+            raw_total = sum([
+                json_score, quality_score, linguistic_score, topic_score,
+                grammar_score, coherence_score, cefr_score, fluency_score
+            ])
+
+            total = min(100, (raw_total / self.max_score) * 100) if self.max_score > 0 else 0.0
+
+            breakdown = RewardBreakdown(
+                json_validity=json_score, exercise_quality=quality_score, linguistic_quality=linguistic_score,
+                cefr_alignment=cefr_score, fluency=fluency_score, grammar_correctness=grammar_score,
+                coherence=coherence_score, topic_adherence=topic_score, total=total, errors=all_errors
             )
-
-            # 3. Normalize and update the breakdown object
-            cpu_breakdown.total = min(100, (raw_total / self.max_score) * 100) if self.max_score > 0 else 0.0
-            results.append((cpu_breakdown.total, cpu_breakdown))
+            results.append((total, breakdown))
 
         total_score = sum(score for score, breakdown in results)
 
