@@ -47,26 +47,28 @@ def format_prompt_with_chat_template(
     user_message = f"""Create exactly {num_exercises} Italian language exercises ({exercise_numbers}) in JSON format {focus_text}.
 
 REQUIREMENTS:
-Level: {level}
-Topic: {topic}
-Grammar: {grammar}{grammar_rule}
-Exercise types: {', '.join(request['exercise_types'])}
+Level: {level} (CEFR)
+Topic: {topic} (e.g., "viaggi", "il treno")
+Exercise types: {', '.join(request['exercise_types'])} (e.g., "fill_in_blank", "multiple_choice", "translation")
 
 CRITICAL RULES:
-1. TOPIC: Every exercise MUST be about "{topic}" - stay on topic throughout
+1. TOPIC: Every exercise MUST be about "{topic}" - stay loosly around the context of the topic throughout 
 2. REALISM: Use factual, natural scenarios appropriate for the topic
-3. GRAMMAR: EVERY SINGLE exercise MUST test "{grammar}" at {level} level
+3. GRAMMAR: EVERY SINGLE exercise MUST test "{grammar}" at {level} level. {grammar_rule.strip()}
 4. MULTIPLE CHOICE: Provide 4 DIFFERENT grammatical forms as options
 5. CONSISTENCY: Do not mix different topics or introduce unrelated subjects
+6. EXERCISE TYPES: Use ALL specified exercise types ({', '.join(request['exercise_types'])}) across the generated exercises.
+7. EXPLANATION: Provide a concise, helpful explanation for the grammar point tested in each exercise.
+8. NO REDUNDANCY: The correct answer must NOT be directly present in the question.
 
 OUTPUT FORMAT - JSON array with exercises testing {grammar}:
 [
-  {{"type": "fill_in_blank", "question": "[Italian sentence about {topic} with ___ blank for {grammar}]", "correct_answer": "[conjugated form in {grammar}]", "options": null, "explanation": "[grammar rule explanation]"}},
-  {{"type": "translation", "question": "Translate: [English sentence about {topic} in {grammar}]", "correct_answer": "[Italian translation using {grammar}]", "options": null, "explanation": "[grammar note]"}},
+  {{"type": "fill_in_blank", "question": "[Italian sentence about {topic} with ___ blank for {grammar}]", "correct_answer": "[conjugated form in {grammar}]", "options": null, "explanation": "[brief grammar explanation]"}},
+  {{"type": "translation", "question": "Translate: [English sentence about {topic} in {grammar}]", "correct_answer": "[Italian translation using {grammar}]", "options": null, "explanation": "[brief grammar note]"}},
   {{"type": "multiple_choice", "question": "[Italian sentence about {topic} with blank]", "correct_answer": "[correct form in {grammar}]", "options": ["[alt1]", "[alt2]", "[alt3]", "[alt4]"], "explanation": "[why this form is correct]"}}
 ]
 
-NOW GENERATE {num_exercises} EXERCISES ABOUT "{topic}" TESTING "{grammar}" (remember: {grammar} ONLY!):
+NOW GENERATE {num_exercises} EXERCISES ABOUT "{topic}" TESTING "{grammar}" (remember to follow ALL CRITICAL RULES):
 [
 """
 
@@ -95,21 +97,32 @@ def _get_options_example(exercise_type: str) -> str:
 
 
 def _get_grammar_rule(grammar: str) -> str:
-    """Get mandatory grammar rule for specific focus areas."""
-    grammar_lower = grammar.lower()
+    """Get mandatory grammar rule for specific focus areas, handling combined focuses."""
+    focus_parts = [f.strip().lower() for f in grammar.split(" and ")]
+    rules = []
+    tense_rules_found = set()
 
-    if "past" in grammar_lower or "passato" in grammar_lower:
-        return "\n⚠️ MANDATORY: Use ONLY past tense (passato prossimo like 'ho fatto', 'sono andato' OR imperfetto like 'facevo', 'andavo'). NO present tense!"
-    elif "present" in grammar_lower or "presente" in grammar_lower:
-        return "\n⚠️ MANDATORY: Use ONLY present tense (presente indicativo like 'faccio', 'vado'). NO past or future!"
-    elif "future" in grammar_lower or "futuro" in grammar_lower:
-        return "\n⚠️ MANDATORY: Use ONLY future tense (futuro semplice like 'farò', 'andrò'). NO present or past!"
-    elif "conditional" in grammar_lower or "condizionale" in grammar_lower:
-        return "\n⚠️ MANDATORY: Use ONLY conditional mood (condizionale like 'farei', 'andrei'). NO indicative!"
-    elif "subjunctive" in grammar_lower or "congiuntivo" in grammar_lower:
-        return "\n⚠️ MANDATORY: Use ONLY subjunctive mood (congiuntivo like 'che io faccia', 'che tu vada'). NO indicative!"
+    for part in focus_parts:
+        if "past" in part or "passato" in part:
+            rules.append("Use ONLY past tense (passato prossimo or imperfetto)")
+            tense_rules_found.add("past")
+        elif "present" in part or "presente" in part:
+            rules.append("Use ONLY present tense (presente indicativo)")
+            tense_rules_found.add("present")
+        elif "future" in part or "futuro" in part:
+            rules.append("Use ONLY future tense (futuro semplice)")
+            tense_rules_found.add("future")
+        elif "conditional" in part or "condizionale" in part:
+            rules.append("Use ONLY conditional mood (condizionale)")
+        elif "subjunctive" in part or "congiuntivo" in part:
+            rules.append("Use ONLY subjunctive mood (congiuntivo)")
 
-    return ""
+    if not rules:
+        return ""
+
+    # Add a general "no other tenses" rule if any tense was specified
+    no_other_tenses_rule = ". NO other tenses!" if tense_rules_found else ""
+    return "⚠️ MANDATORY: " + ". ".join(rules) + no_other_tenses_rule
 
 
 def _get_few_shot_examples(grammar: str, topic: str, level: str, exercise_types: List[str]) -> str:

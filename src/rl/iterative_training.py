@@ -1,13 +1,21 @@
+import asyncio
 import gc
 import json
 import re
 from typing import Dict, List, Tuple, Union
 
+import json5
 import torch
-from tqdm.auto import tqdm
+from tqdm.auto import tqdm  # For progress bars
 
 # transformers imports (assumes transformers, bitsandbytes installed)
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# Import the official prompt formatter
+try:
+    from .prompt_formatter import format_prompt_with_chat_template
+except ImportError:
+    from src.rl.prompt_formatter import format_prompt_with_chat_template
 
 
 # keep your create_round2_dataset as-is
@@ -115,77 +123,7 @@ def _move_model_to_cuda_or_reload_quantized(
     return model_or_path, False
 
 
-def format_prompt_with_chat_template(request: dict, tokenizer) -> str:
-    """
-    Format request using chat template + EXACT API prompt format.
-
-    Combines:
-    1. Llama3 chat template (required for V4)
-    2. Detailed API prompt (ensures proper JSON format)
-    """
-    topic = request.get("topic", "general Italian")
-    grammar = request.get("grammar_focus", "general practice")
-
-    # Create numbered placeholders to guide the model
-    exercise_numbers = ", ".join([f"#{i+1}" for i in range(request["num_exercises"])])
-
-    topic_instruction = f"about '{topic}'"
-    grammar_instruction = f"focusing on {grammar}"
-    focus_text = f"{topic_instruction} {grammar_instruction}".strip()
-
-    # Build grammar-specific instruction
-    grammar_rule = ""
-    if "past" in grammar.lower() or "passato" in grammar.lower():
-        grammar_rule = "\n⚠️ MANDATORY: Use ONLY past tense (passato prossimo like 'ho fatto', 'sono andato' OR imperfetto like 'facevo', 'andavo'). NO present tense!"
-    elif "present" in grammar.lower() or "presente" in grammar.lower():
-        grammar_rule = "\n⚠️ MANDATORY: Use ONLY present tense (presente indicativo like 'faccio', 'vado'). NO past or future!"
-    elif "future" in grammar.lower() or "futuro" in grammar.lower():
-        grammar_rule = "\n⚠️ MANDATORY: Use ONLY future tense (futuro semplice like 'farò', 'andrò'). NO present or past!"
-
-    # EXACT API PROMPT FORMAT - goes in user message
-    user_message = f"""Create exactly {request['num_exercises']} Italian language exercises ({exercise_numbers}) in JSON format {focus_text}.
-
-REQUIREMENTS:
-Level: {request['level']}
-Topic: {topic}
-Grammar: {grammar}{grammar_rule}
-Exercise types: {', '.join(request['exercise_types'])}
-
-CRITICAL RULES:
-1. TOPIC: Every exercise MUST be about "{topic}" - stay on topic throughout
-2. REALISM: Use factual, natural scenarios appropriate for the topic
-3. GRAMMAR: EVERY SINGLE exercise MUST test "{grammar}" at {request['level']} level
-4. MULTIPLE CHOICE: Provide 4 DIFFERENT grammatical forms as options
-5. CONSISTENCY: Do not mix different topics or introduce unrelated subjects
-
-OUTPUT FORMAT - JSON array with exercises testing {grammar}:
-[
-  {{"type": "fill_in_blank", "question": "[Italian sentence about {topic} with ___ blank for {grammar}]", "correct_answer": "[conjugated form in {grammar}]", "options": null, "explanation": "[grammar rule explanation]"}},
-  {{"type": "translation", "question": "Translate: [English sentence about {topic} in {grammar}]", "correct_answer": "[Italian translation using {grammar}]", "options": null, "explanation": "[grammar note]"}},
-  {{"type": "multiple_choice", "question": "[Italian sentence about {topic} with blank]", "correct_answer": "[correct form in {grammar}]", "options": ["[alt1]", "[alt2]", "[alt3]", "[alt4]"], "explanation": "[why this form is correct]"}}
-]
-
-NOW GENERATE {request['num_exercises']} EXERCISES ABOUT "{topic}" TESTING "{grammar}" (remember: {grammar} ONLY!):
-["""
-
-    # Apply chat template with system + user messages
-    messages = [
-        {
-            "role": "system",
-            "content": "You are an expert Italian language teacher. Generate high-quality exercises based on the assignment specification. Output exercises in JSON format.",
-        },
-        {"role": "user", "content": user_message},
-    ]
-
-    # Use tokenizer's chat template to format properly
-    formatted_prompt = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-
-    return formatted_prompt
-
-
-def evaluate_model_on_requests(
+async def evaluate_model_on_requests(
     model_or_path: Union[str, torch.nn.Module],
     tokenizer: AutoTokenizer,
     reward_fn,
@@ -252,6 +190,8 @@ def evaluate_model_on_requests(
         start = bidx * batch_size
         batch = requests[start : start + batch_size]
 
+        # Use the official, imported prompt formatter
+        # The `add_examples` parameter is now ignored by the formatter, so we can omit it.
         prompts = [format_prompt_with_chat_template(req, tokenizer) for req in batch]
 
         # Tokenize batched prompts
@@ -295,7 +235,7 @@ def evaluate_model_on_requests(
         for i, generated_text in enumerate(generated_texts):
 
             request = batch[i]
-            json_text = None
+            exercises = None
             try:
                 # Use regex to find the JSON array. This is more robust than simple slicing.
                 # It handles cases where the model might add extra text after the JSON.
@@ -307,47 +247,48 @@ def evaluate_model_on_requests(
                         "No valid JSON array found in the output.", generated_text, 0
                     )
 
-                json_text = match.group(1)
+                json_str = match.group(1)
 
-                # Clean up common JSON errors from LLMs, like trailing commas
-                # before the closing bracket/brace
-                json_text = re.sub(r",\s*([}\]])", r"\1", json_text)
-
-                exercises = json.loads(json_text)
+                # Use json5 for robust parsing (handles trailing commas, etc.)
+                exercises = json5.loads(json_str)
                 if not isinstance(exercises, list):
                     exercises = [exercises]
 
                 if not exercises:
                     raise ValueError("Parsed JSON is an empty list.")
 
-                scores = []
-                for exercise in exercises:
-                    # reward_fn is expected to be thread-safe / stateless per-call
-                    score, breakdown = reward_fn.score(exercise, request)
-                    scores.append(score)
+                # --- ASYNC REWARD CALCULATION ---
+                # Use the efficient `score_exercises` to run all scoring concurrently.
+                # We `await` it directly now that the parent function is async.
+                avg_score, results = await reward_fn.score_exercises(exercises, request)
 
-                avg_score = sum(scores) / len(scores)
+                # Get the breakdown from the first exercise for logging purposes
+                first_breakdown = results[0][1] if results else "N/A"
 
                 if avg_score < 92:
                     low_scoring.append(
                         {
                             "request": request,
                             "generated": generated_text,
+                            "parsed_exercises": exercises,
                             "score": avg_score,
-                            "breakdown": str(breakdown),
+                            "breakdown": str(first_breakdown),
                         }
                     )
                 else:
                     high_scoring.append(
-                        {"request": request, "generated": generated_text, "score": avg_score}
+                        {
+                            "request": request,
+                            "generated": generated_text,
+                            "score": avg_score,
+                        }
                     )
 
             except Exception as e:
                 low_scoring.append(
                     {
                         "request": request,
-                        "generated": generated_text,
-                        "parsed_json": json_text,
+                        "generated": generated_text,  # Log the full text on error
                         "score": 10.0,
                         "error": str(e),
                     }
@@ -381,8 +322,8 @@ def evaluate_model_on_requests(
 
 
 # Example usage:
-# if you already have a quantized / gpu model instance:
-# low, high = evaluate_model_on_requests(model, tokenizer, reward_fn, validation_requests, batch_size=4, output_path='eval.json')
+# In a Jupyter cell or async script, you would now run it with `await`:
 #
-# OR pass a model path string and let the helper try to load 8-bit:
-# low, high = evaluate_model_on_requests('./models/italian_v6_grpo_pilot', tokenizer, reward_fn, validation_requests, batch_size=4)
+# low, high = await evaluate_model_on_requests(
+#     './models/italian_v6_grpo_pilot', tokenizer, reward_fn, validation_requests, batch_size=4
+# )

@@ -1,15 +1,3 @@
-"""
-Exercise Quality Scorer - Validates exercise construction principles.
-
-This scorer catches CRITICAL exercise design flaws that make exercises unusable:
-1. Answer already visible in question (redundancy)
-2. No actual grammar testing (asking for non-verbs when testing verb tenses)
-3. Wrong exercise types (requested translation, got fill-in-blank)
-4. Answer = question (no actual exercise)
-
-State-of-the-art: Uses pattern matching + linguistic analysis, not hardcoded lists.
-"""
-
 import re
 from typing import Any, Dict, List, Tuple
 
@@ -20,37 +8,106 @@ from .base import BaseScorer
 
 class ExerciseQualityScorer(BaseScorer):
     """
-    Scores exercise construction quality (0-30 points). [UPDATED Round 4]
+    Scores exercise construction quality (0-20 points).
 
-    This is a BLOCKING scorer - critical failures return 0, which triggers -10 penalty in multi-reward.
+    This is a BLOCKING scorer - critical failures result in a score of 0 for that component.
 
     Components:
-    - No redundancy: Answer must not appear in question (4 pts) [BLOCKING]
-    - Grammar testing: Must test requested grammar with actual examples (4 pts) [BLOCKING]
-    - Context sufficiency: Fill-in-blank must have clues (15 pts) [BLOCKING - Round 4 CRITICAL]
-    - Exercise type match: Must match requested type (4 pts)
-    - Answer quality: Answer must be valid Italian (3 pts)
+    - Context sufficiency (Fill-in-blank): Must have explicit clues (10 pts) [BLOCKING]
+    - Structure validity (Translation): Must have distinct English question and Italian answer (10 pts) [BLOCKING]
+    - No redundancy: Answer must not appear in question (8 pts) [BLOCKING]
+    - Answer quality: Answer must not be empty/too short (2 pts)
 
-    Total: 30 points (increased from 20→25→30 to make context penalty significant)
+    Total: 20 points (re-weighted)
     """
 
     def __init__(self, nlp: spacy.language.Language):
         super().__init__(nlp)
 
     def score(self, exercise: Dict[str, Any], request: Dict[str, Any]) -> Tuple[float, List[str]]:
-        """Score exercise construction quality (Round 4: 15pt context penalty)."""
+        """Score exercise construction quality."""
         errors = []
-        score = 30.0  # Updated max score (was 25)
+        score = 20.0  # New max score
 
         # Extract components
         question = exercise.get("question", "")
         answer = exercise.get("correct_answer", exercise.get("answer", ""))
         exercise_type = exercise.get("type", "")
-        requested_types = request.get("exercise_types", [])
-        grammar_focus = request.get("grammar_focus", "")
 
-        # CRITICAL CHECK 1: Redundancy (4 pts) [BLOCKING]
-        redundancy_score = 4.0
+        # CRITICAL CHECK 1: Context sufficiency for fill-in-blank (10 pts) [BLOCKING]
+        # And single blank enforcement
+        context_score = 10.0
+        if exercise_type == "fill_in_blank" and question and answer:
+            if question.count("___") != 1:
+                errors.append(f"CRITICAL: Fill-in-blank must have exactly one blank ('___'), found {question.count('___')}.")
+                context_score = 0.0
+
+            has_context_clue = False
+            
+            # Check for a full sentence translation prompt first
+            if re.search(r"[Tt]ranslat[e:]|[Ii]nglese:|[Ee]nglish:", question):
+                has_context_clue = True
+            else:
+                # Check for a hint in parentheses, e.g., (andare) or (beautiful)
+                hint_match = re.search(r"\((.*?)\)", question)
+                if hint_match:
+                    hint = hint_match.group(1).strip().lower()
+                    
+                    # Analyze the correct answer to determine its type
+                    answer_doc = self.nlp(answer.strip())
+                    if answer_doc and len(answer_doc) > 0:
+                        answer_token = answer_doc[0]
+                        
+                        # If the answer is a verb, the hint must be its base form (lemma)
+                        if answer_token.pos_ == "VERB":
+                            if hint == answer_token.lemma_.lower():
+                                has_context_clue = True
+                            else:
+                                errors.append(f"Hint validation failed: For verb '{answer}', hint '({hint})' is not the correct base form '{answer_token.lemma_}'.")
+                        # If it's not a verb, we accept any hint as a potential translation
+                        # We'll validate that the hint looks like an English word (only a-z characters)
+                        else:
+                            if hint.isalpha() and hint.isascii():
+                                has_context_clue = True
+                            else:
+                                errors.append(f"Hint validation failed: For non-verb '{answer}', hint '({hint})' is not a valid translation (e.g., 'beautiful').")
+
+
+            if not has_context_clue:
+                context_score = 0.0
+                if not errors: # Avoid duplicate error messages
+                    errors.append(f"CRITICAL: Fill-in-blank lacks a valid hint (e.g., base verb in parentheses or a translation).")
+
+        # CRITICAL CHECK 1B: Structure validity for translation (10 pts) [BLOCKING]
+        elif exercise_type == "translation" and question and answer:
+            is_valid_structure = True
+            # Heuristic: Question should contain English-like words and not be identical to the answer
+            question_words = set(re.findall(r'\b[a-zA-Z]+\b', question.lower()))
+            answer_words = set(re.findall(r'\b[a-zA-Z]+\b', answer.lower()))
+            
+            # Check for "translation leakage" where answer is in the question
+            if answer.lower().strip() in question.lower().strip():
+                is_valid_structure = False
+                errors.append("CRITICAL: Translation answer is present in the question.")
+
+            # Check if question has a prompt
+            if not re.search(r"[Tt]ranslat[e:]|[Ii]nglese:|[Ee]nglish:", question):
+                 # This is a minor issue, not critical, but we can note it
+                 pass # errors.append("Minor: Translation question lacks a 'Translate:' prompt.")
+
+            # Check if answer contains Italian words (heuristic)
+            italian_indicators = {"il", "la", "un", "una", "di", "a", "è", "sono", "ho", "ha"}
+            if not any(word in italian_indicators for word in answer_words):
+                is_valid_structure = False
+                errors.append("CRITICAL: Translation answer does not appear to be valid Italian.")
+
+            if not is_valid_structure:
+                context_score = 0.0
+
+        score += context_score - 10.0
+
+        # CRITICAL CHECK 2: Redundancy (8 pts, re-weighted) [BLOCKING]
+        redundancy_score = 8.0
         if answer and question:
             answer_clean = answer.lower().strip()
             question_clean = question.lower().replace("___", "").replace("_", "")
@@ -66,84 +123,10 @@ class ExerciseQualityScorer(BaseScorer):
                 redundancy_score = 0.0
                 errors.append(f"CRITICAL: Answer '{answer}' is already a word in question")
 
-        score += redundancy_score - 4.0  # Start at 20, adjust
+        score += redundancy_score - 8.0
 
-        # CRITICAL CHECK 2: Grammar testing (4 pts) [BLOCKING]
-        grammar_score = 4.0
-        if grammar_focus:
-            # Check if grammar focus is a tense
-            tense_focuses = [
-                "past_tense",
-                "present_tense",
-                "future_tense",
-                "imperfect_tense",
-                "conditional",
-                "subjunctive",
-            ]
-
-            if grammar_focus in tense_focuses:
-                # Parse question + answer to check for verbs
-                text = f"{question} {answer}"
-                doc = self.nlp(text)
-                verbs = [token for token in doc if token.pos_ == "VERB"]
-
-                if not verbs:
-                    grammar_score = 0.0
-                    errors.append(f"CRITICAL: Testing {grammar_focus} but no verbs found")
-                elif len(verbs) == 1 and verbs[0].text.lower() == answer.lower():
-                    # Only verb is the answer itself - good!
-                    pass
-                elif not any(v.text.lower() == answer.lower() for v in verbs):
-                    # Answer is not a verb but we're testing verb tenses
-                    grammar_score = 0.0
-                    errors.append(
-                        f"CRITICAL: Answer '{answer}' is not a verb (testing {grammar_focus})"
-                    )
-
-        score += grammar_score - 4.0
-
-        # ROUND 4 FIX: CRITICAL CHECK 2.5: Context sufficiency for fill-in-blank (15 pts) [BLOCKING]
-        # INCREASED from 5→10→15 points - context is CRITICAL for pedagogy
-        context_score = 15.0
-        if exercise_type == "fill_in_blank" and question and answer:
-            # Check if question provides sufficient context clues
-            has_context_clue = False
-
-            # Pattern 1: Base verb form in parentheses (e.g., "Ieri (andare) ___ al cinema")
-            if re.search(r"\([a-zA-Z]+\)", question):
-                has_context_clue = True
-
-            # Pattern 2: Translation prompt (e.g., "Translate: The placement is important → ")
-            if re.search(r"[Tt]ranslat[e:]|[Ii]nglese:|[Ee]nglish:", question):
-                has_context_clue = True
-
-            # Pattern 3: Question has enough words for context (minimum 5 words excluding blank)
-            question_words = question.replace("___", "").replace("_", "").split()
-            if len(question_words) >= 5:
-                # If question is long enough, it likely provides context
-                has_context_clue = True
-
-            if not has_context_clue:
-                # CRITICAL: Impossible to answer without context!
-                context_score = 0.0
-                errors.append(
-                    f"🚨 CRITICAL: Fill-in-blank lacks context clues! Question: '{question}' Answer: '{answer}'"
-                )
-                errors.append("   Add translation, base verb (andare), or more context words")
-
-        score += context_score - 15.0
-
-        # CHECK 3: Exercise type match (4 pts)
-        type_score = 4.0
-        if requested_types and exercise_type:
-            if exercise_type not in requested_types:
-                type_score = 0.0
-                errors.append(f"Wrong type: requested {requested_types}, got '{exercise_type}'")
-
-        score += type_score - 4.0
-
-        # CHECK 4: Answer quality (3 pts)
-        answer_score = 3.0
+        # CHECK 4: Answer quality (2 pts)
+        answer_score = 2.0
         if not answer or len(answer.strip()) == 0:
             answer_score = 0.0
             errors.append("Empty answer")
@@ -151,16 +134,16 @@ class ExerciseQualityScorer(BaseScorer):
             answer_score = 1.0
             errors.append("Answer too short (< 2 chars)")
 
-        score += answer_score - 3.0
+        score += answer_score - 2.0
 
         # Ensure score is within bounds
-        score = max(0.0, min(30.0, score))
+        score = max(0.0, min(20.0, score))
 
         return score, errors
 
     @property
     def max_score(self) -> float:
-        return 30.0
+        return 20.0
 
     @property
     def name(self) -> str:

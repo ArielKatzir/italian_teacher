@@ -93,8 +93,8 @@ class JSONScorer(BaseScorer):
                 score -= 15
         elif ex_type == "fill_in_blank" or ex_type == "translation":
             # Verify options is null (not an array)
-            options = exercise.get("options")
-            if options is not None and isinstance(options, list) and len(options) > 0:
+            # Any value for 'options' is incorrect for these types. It should be null or not present.
+            if exercise.get("options") is not None:
                 errors.append(f"CRITICAL: {ex_type} should have options=null, not an array")
                 score -= 10  # Bigger penalty
             else:
@@ -105,9 +105,33 @@ class JSONScorer(BaseScorer):
 
         return score, errors
 
+    def score_batch(self, exercises: List[Dict[str, Any]], request: Dict[str, Any]) -> Tuple[float, List[str]]:
+        """
+        Score batch-level JSON properties, specifically exercise type diversity.
+        This is a separate check from individual exercise scoring.
+        """
+        batch_score = 0.0
+        errors = []
+        requested_types = request.get("exercise_types", [])
+        
+        if len(requested_types) > 1: # Only check diversity if multiple types were requested
+            generated_types = {ex.get("type") for ex in exercises if ex.get("type")}
+            
+            # Calculate how many of the requested types were actually generated
+            matched_types = generated_types.intersection(set(requested_types))
+            
+            if len(matched_types) < len(requested_types):
+                # Penalize if not all requested types are present
+                missing_types = set(requested_types) - matched_types
+                errors.append(f"Batch JSON error: Missing requested exercise types: {list(missing_types)}")
+                # Penalty scales with the number of missing types
+                batch_score -= (len(missing_types) / len(requested_types)) * 10 # Max 10 points penalty for diversity
+
+        return batch_score, errors
+
     @property
-    def max_score(self) -> float:
-        return 15.0
+    def max_score(self) -> float: # Max score for JSON is 15, but batch penalty can reduce it.
+        return 15.0 
 
     @property
     def name(self) -> str:

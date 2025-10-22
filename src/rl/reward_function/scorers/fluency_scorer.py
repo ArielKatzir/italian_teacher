@@ -27,22 +27,24 @@ class FluencyScorer(BaseScorer):
     - Optional: LLM-based naturalness check for subtle issues
     """
 
-    def __init__(self, nlp: spacy.language.Language):
+    def __init__(self, nlp: spacy.language.Language, use_llm: bool = False):
         super().__init__(nlp)
+        self.use_llm = use_llm
+        self.client = None
 
         # Check if OpenAI API is available for advanced checking
-        self.use_llm = os.environ.get("OPENAI_API_KEY") is not None
         if self.use_llm:
             try:
                 from openai import OpenAI
 
                 self.client = OpenAI()
-                print("  ✅ LLM fluency checking enabled (OpenAI API)")
+                print("  ✅ FluencyScorer: LLM checking is enabled.")
             except ImportError:
                 self.use_llm = False
-                print("  ⚠️ OpenAI not installed, using rule-based fluency only")
-        else:
-            self.client = None
+                print("  ⚠️ FluencyScorer: 'openai' package not installed. Disabling LLM check.")
+            except Exception:
+                self.use_llm = False
+                print("  ⚠️ FluencyScorer: OpenAI API key not found or invalid. Disabling LLM check.")
 
     def score(self, exercise: Dict[str, Any], request: Dict[str, Any]) -> Tuple[float, List[str]]:
         """Score fluency and naturalness."""

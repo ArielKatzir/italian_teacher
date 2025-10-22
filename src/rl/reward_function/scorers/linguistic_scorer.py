@@ -14,15 +14,17 @@ from .base import BaseScorer
 
 class LinguisticScorer(BaseScorer):
     """
-    Scores comprehensive Italian linguistic quality (0-25 points).
+    Scores comprehensive Italian linguistic quality (re-weighted to 0-15 points).
 
     Checks:
-    - Article-noun gender agreement with elision, partitives (7 pts)
-    - Number agreement (singular/plural consistency) (5 pts)
-    - Adjective-noun agreement (gender and number) (5 pts)
-    - Verb-subject agreement (person and number) (4 pts)
-    - Preposition usage (common errors) (2 pts)
-    - Pronoun agreement and positioning (2 pts)
+    - Noun phrase agreement (article, adjective, noun) (3 pts)
+    - Verb-subject agreement (person and number) (2 pts)
+    - Past participle agreement (with essere/avere) (2 pts)
+    - Pronoun agreement, placement, and redundancy (2 pts)
+    - Sentence Fragments (e.g., missing main clause) (2 pts)
+    - Adverb/Adjective usage errors (e.g., redundancy) (1 pt)
+    - Preposition usage (common errors) (1 pt)
+    - Repetition check for consecutive identical words (2 pts)
     """
 
     def __init__(self, nlp: spacy.language.Language):
@@ -42,135 +44,92 @@ class LinguisticScorer(BaseScorer):
         # Parse with spaCy
         doc = self.nlp(text)
 
-        # Component scores (total 25) - Adjusted for Round 4
-        article_score = 7.0
-        number_score = 5.0
-        adjective_score = 5.0
-        verb_score = 4.0
-        preposition_score = 2.0
+        # Component scores (total 15) - Re-weighted
+        np_agreement_score = 3.0
+        verb_score = 2.0
+        participle_score = 2.0
         pronoun_score = 2.0
+        fragment_score = 2.0
+        adv_adj_score = 1.0
+        preposition_score = 1.0
+        repetition_score = 2.0
 
-        # 1. Article-noun gender agreement (7 pts)
-        article_errors = self._check_article_noun_agreement(doc)
-        if article_errors:
-            article_score = max(0, 7 - len(article_errors) * 2.5)
-            errors.extend(article_errors)
+        # 1. Noun Phrase Agreement (articles, adjectives) - CONSOLIDATED
+        np_errors = self._check_noun_phrase_agreement(doc)
+        if np_errors:
+            np_agreement_score = max(0, 3.0 - len(np_errors) * 1.5)
+            errors.extend(np_errors)
 
-        # 2. Number agreement (5 pts)
-        number_errors = self._check_number_agreement(doc)
-        if number_errors:
-            number_score = max(0, 5 - len(number_errors) * 2.5)
-            errors.extend(number_errors)
-
-        # 3. Adjective-noun agreement (5 pts)
-        adj_errors = self._check_adjective_noun_agreement(doc)
-        if adj_errors:
-            adjective_score = max(0, 5 - len(adj_errors) * 2.5)
-            errors.extend(adj_errors)
-
-        # 4. Verb-subject agreement (4 pts)
+        # 2. Verb-subject agreement (4 pts)
         verb_errors = self._check_verb_subject_agreement(doc)
         if verb_errors:
-            verb_score = max(0, 4 - len(verb_errors) * 2)
+            verb_score = max(0, 2.0 - len(verb_errors) * 2)
             errors.extend(verb_errors)
 
-        # 5. Preposition usage (2 pts)
+        # 3. Past Participle Agreement (5 pts) - NEW
+        participle_errors = self._check_past_participle_agreement(doc)
+        if participle_errors:
+            participle_score = max(0, 2.0 - len(participle_errors) * 1)
+            errors.extend(participle_errors)
+
+        # 4. Adverb/Adjective Usage Errors (2 pts) - NEW
+        adv_adj_errors = self._check_adverb_adjective_errors(doc)
+        if adv_adj_errors:
+            adv_adj_score = 0.0 # Penalize heavily for these structural errors
+            errors.extend(adv_adj_errors)
+
+        # 5. Sentence Fragment Check (2 pts) - NEW
+        fragment_errors = self._check_sentence_fragments(doc)
+        if fragment_errors:
+            fragment_score = 0.0 # This is a major error
+            errors.extend(fragment_errors)
+
+        # 6. Preposition usage (1 pt)
         prep_errors = self._check_preposition_usage(doc, text)
         if prep_errors:
-            preposition_score = max(0, 2 - len(prep_errors) * 1)
+            preposition_score = max(0, 1 - len(prep_errors) * 1)
             errors.extend(prep_errors)
 
-        # 6. Pronoun agreement (2 pts)
+        # 7. Pronoun agreement (2 pts)
         pronoun_errors = self._check_pronoun_agreement(doc)
+        pronoun_errors.extend(self._check_subject_pronoun_redundancy(doc)) # Add new check
         if pronoun_errors:
-            pronoun_score = max(0, 2 - len(pronoun_errors) * 1)
+            pronoun_score = max(0, 2.0 - len(pronoun_errors) * 1)
             errors.extend(pronoun_errors)
 
+        # 8. Consecutive Repetition Check (2 pts)
+        repetition_errors = self._check_consecutive_repetition(doc)
+        if repetition_errors:
+            repetition_score = 0.0 # This is a major error
+            errors.extend(repetition_errors)
+
+
         total_linguistic_score = (
-            article_score
-            + number_score
-            + adjective_score
+            np_agreement_score
             + verb_score
+            + participle_score
+            + fragment_score
+            + adv_adj_score
             + preposition_score
             + pronoun_score
+            + repetition_score
         )
 
         return total_linguistic_score, errors
 
-    def _check_article_noun_agreement(self, doc: spacy.tokens.Doc) -> List[str]:
+    def _check_noun_phrase_agreement(self, doc: spacy.tokens.Doc) -> List[str]:
         """
-        Check article-noun gender agreement with comprehensive rules.
-
-        Handles: definite, indefinite, partitive, and elided articles.
+        Consolidated check for noun phrase agreement.
+        Verifies that articles and adjectives agree with the noun they modify
+        in both gender and number.
         """
         errors = []
 
-        # Quantifiers and possessives that don't need articles
-        quantifiers = {
-            # Quantifiers
-            "molti",
-            "molte",
-            "pochi",
-            "poche",
-            "alcuni",
-            "alcune",
-            "tanti",
-            "tante",
-            "parecchi",
-            "parecchie",
-            "diversi",
-            "diverse",
-            "vari",
-            "varie",
-            "ogni",
-            "qualche",
-            "qualsiasi",
-            "ciascun",
-            "ciascuna",
-            # Possessive pronouns (don't need articles)
-            "mio",
-            "mia",
-            "miei",
-            "mie",
-            "tuo",
-            "tua",
-            "tuoi",
-            "tue",
-            "suo",
-            "sua",
-            "suoi",
-            "sue",
-            "nostro",
-            "nostra",
-            "nostri",
-            "nostre",
-            "vostro",
-            "vostra",
-            "vostri",
-            "vostre",
-            "loro",  # their (invariable)
-        }
-
         for token in doc:
-            # Check if this is an article
-            if token.pos_ != "DET":
+            if token.pos_ not in ["NOUN", "PROPN"]:
                 continue
 
-            # Skip quantifiers - they don't require articles
-            if token.text.lower() in quantifiers:
-                continue
-
-            # Find the noun this article modifies
-            noun = None
-            if token.head.pos_ == "NOUN":
-                noun = token.head
-            elif token.dep_ == "det" and token.head.pos_ == "NOUN":
-                noun = token.head
-
-            if not noun:
-                continue
-
-            article = token.text.lower()
+            noun = token
             noun_text = noun.text.lower()
 
             # Get noun gender (check exceptions first)
@@ -182,86 +141,54 @@ class LinguisticScorer(BaseScorer):
             noun_number = noun.morph.get("Number")
             if not noun_number:
                 noun_number = ["Sing"]  # Default assumption
+            noun_number_val = noun_number[0]
 
-            # Validate article matches noun
-            expected_articles = self._get_valid_articles(noun_text, noun_gender, noun_number[0])
+            # New Check: Detect multiple determiners for the same noun
+            determiners = [child for child in token.children if child.dep_ == "det"]
+            if len(determiners) > 1:
+                errors.append(f"Linguistic error: Multiple determiners ('{[d.text for d in determiners]}') for noun '{noun.text}'.")
+                continue # Skip further checks for this broken phrase
 
-            if article not in expected_articles:
-                errors.append(
-                    f"Article-noun mismatch: '{article} {noun_text}' "
-                    f"(expected: {'/'.join(expected_articles[:2])})"
-                )
-
-        return errors
-
-    def _check_number_agreement(self, doc: spacy.tokens.Doc) -> List[str]:
-        """
-        Check singular/plural number agreement.
-
-        Verifies articles, adjectives, and nouns agree in number.
-        """
-        errors = []
-
-        for token in doc:
-            if token.pos_ not in ["NOUN", "PROPN"]:
-                continue
-
-            noun_number = token.morph.get("Number")
-            if not noun_number:
-                continue
-
-            # Check article-noun number agreement
+            # New Check: Detect if a verb incorrectly splits a noun from its prepositional modifier
+            # e.g., "compressione [VERB] del materiale"
             for child in token.children:
-                if child.pos_ == "DET":
-                    det_number = child.morph.get("Number")
-                    if det_number and det_number != noun_number:
+                if child.dep_ == "prep": # e.g., 'del' in "compressione del materiale"
+                    # Check if there's a verb between the noun and its prepositional modifier
+                    if any(t.pos_ in ["VERB", "AUX"] for t in doc[token.i + 1 : child.i]):
+                        errors.append(f"Linguistic error: Verb incorrectly splits noun '{token.text}' from its modifier '{child.text}'.")
+
+            # Check all dependent articles and adjectives
+            for child in token.children:
+                # Check Article Agreement
+                if child.pos_ == "DET" and child.dep_ == "det":
+                    article = child.text.lower()
+                    expected_articles = self._get_valid_articles(noun_text, noun_gender, noun_number_val)
+                    if article not in expected_articles:
                         errors.append(
-                            f"Number mismatch: '{child.text} {token.text}' "
-                            f"(article: {det_number[0]}, noun: {noun_number[0]})"
+                            f"Article-noun mismatch: '{article} {noun_text}' "
+                            f"(expected one of: {', '.join(expected_articles)})"
                         )
+                
+                # Check Adjective Agreement
+                elif child.pos_ == "ADJ" and child.dep_ == "amod":
+                    adj = child
+                    if adj.text.lower() in self.invariant_adjectives:
+                        continue
 
-        return errors
+                    adj_gender = adj.morph.get("Gender")
+                    adj_number = adj.morph.get("Number")
 
-    def _check_adjective_noun_agreement(self, doc: spacy.tokens.Doc) -> List[str]:
-        """
-        Check adjective-noun gender and number agreement.
-
-        Adjectives must match the noun they modify in both gender and number.
-        """
-        errors = []
-
-        for token in doc:
-            if token.pos_ != "ADJ":
-                continue
-
-            # Check if this is an invariant adjective
-            if token.text.lower() in self.invariant_adjectives:
-                continue  # These don't need to agree
-
-            # Find the noun this adjective modifies
-            noun = token.head if token.head.pos_ in ["NOUN", "PROPN"] else None
-
-            if not noun:
-                continue
-
-            adj_gender = token.morph.get("Gender")
-            adj_number = token.morph.get("Number")
-            noun_gender = self._get_noun_gender(noun.text.lower(), noun)
-            noun_number = noun.morph.get("Number")
-
-            # Check gender agreement
-            if adj_gender and noun_gender and adj_gender[0] != noun_gender:
-                errors.append(
-                    f"Adj-noun gender mismatch: '{token.text} {noun.text}' "
-                    f"(adj: {adj_gender[0]}, noun: {noun_gender})"
-                )
-
-            # Check number agreement
-            if adj_number and noun_number and adj_number != noun_number:
-                errors.append(
-                    f"Adj-noun number mismatch: '{token.text} {noun.text}' "
-                    f"(adj: {adj_number[0]}, noun: {noun_number[0]})"
-                )
+                    if adj_gender and adj_gender[0] != noun_gender:
+                        errors.append(
+                            f"Adj-noun gender mismatch: '{adj.text} {noun.text}' "
+                            f"(adj: {adj_gender[0]}, noun: {noun_gender})"
+                        )
+                    
+                    if adj_number and adj_number[0] != noun_number_val:
+                        errors.append(
+                            f"Adj-noun number mismatch: '{adj.text} {noun.text}' "
+                            f"(adj: {adj_number[0]}, noun: {noun_number_val})"
+                        )
 
         return errors
 
@@ -274,6 +201,20 @@ class LinguisticScorer(BaseScorer):
         - "noi va" (should be "noi andiamo")
         """
         errors = []
+
+        # New Check: Detect multiple consecutive main verbs (e.g., "vai andiamo")
+        for i in range(len(doc) - 1):
+            token = doc[i]
+            next_token = doc[i+1]
+            # Check for two consecutive finite verbs (not auxiliaries or modals followed by infinitive)
+            is_token_main_verb = token.pos_ == "VERB" and "Inf" not in token.morph.get("VerbForm", [])
+            is_next_token_main_verb = next_token.pos_ == "VERB" and "Inf" not in next_token.morph.get("VerbForm", [])
+            
+            if is_token_main_verb and is_next_token_main_verb:
+                # Check if they are not coordinated by 'e', 'o', etc.
+                if next_token.dep_ != "conj":
+                    errors.append(f"Linguistic error: Multiple consecutive main verbs '{token.text} {next_token.text}'.")
+                    break # Penalize once for this severe error
 
         for token in doc:
             if token.pos_ != "VERB":
@@ -312,6 +253,105 @@ class LinguisticScorer(BaseScorer):
                     f"(subj: {subj_number[0]}, verb: {verb_number[0]})"
                 )
 
+        return errors
+
+    def _check_past_participle_agreement(self, doc: spacy.tokens.Doc) -> List[str]:
+        """
+        Checks past participle agreement in compound tenses.
+        1. With 'essere', participle agrees with the subject.
+        2. With 'avere', participle agrees with a preceding direct object pronoun (lo, la, li, le).
+        """
+        errors = []
+        for token in doc:
+            # Find a past participle
+            if token.pos_ == "VERB" and "Part" in token.morph.get("VerbForm", []):
+                participle = token
+                aux = participle.head
+
+                # Ensure the head is an auxiliary verb
+                if aux.pos_ != "AUX":
+                    continue
+
+                participle_gender = participle.morph.get("Gender")
+                participle_number = participle.morph.get("Number")
+
+                # Case 1: Auxiliary is 'essere'
+                if aux.lemma_ == "essere":
+                    subject = next((child for child in aux.children if child.dep_ == "nsubj"), None)
+                    if subject:
+                        subj_gender = self._get_noun_gender(subject.text, subject)
+                        subj_number = subject.morph.get("Number")
+
+                        if participle_gender and subj_gender and participle_gender[0] != subj_gender:
+                            errors.append(f"Participle agreement error (essere): '{participle.text}' should agree with subject '{subject.text}' (gender).")
+                        if participle_number and subj_number and participle_number != subj_number:
+                            errors.append(f"Participle agreement error (essere): '{participle.text}' should agree with subject '{subject.text}' (number).")
+
+                # Case 2: Auxiliary is 'avere'
+                elif aux.lemma_ == "avere":
+                    # Find a preceding direct object pronoun (obj dependency on the auxiliary)
+                    direct_obj_pron = next((child for child in aux.children if child.dep_ == "obj" and child.pos_ == "PRON"), None)
+                    
+                    if direct_obj_pron and direct_obj_pron.i < aux.i:
+                        # Check if it's one of the agreeing pronouns
+                        if direct_obj_pron.text.lower() in ["lo", "la", "li", "le", "l'"]:
+                            pron_gender = direct_obj_pron.morph.get("Gender")
+                            pron_number = direct_obj_pron.morph.get("Number")
+
+                            # spaCy might not get gender for "l'", so we can't always check
+                            if participle_gender and pron_gender and participle_gender != pron_gender:
+                                errors.append(f"Participle agreement error (avere): '{participle.text}' should agree with pronoun '{direct_obj_pron.text}' (gender).")
+                            if participle_number and pron_number and participle_number != pron_number:
+                                errors.append(f"Participle agreement error (avere): '{participle.text}' should agree with pronoun '{direct_obj_pron.text}' (number).")
+
+        return errors
+
+    def _check_adverb_adjective_errors(self, doc: spacy.tokens.Doc) -> List[str]:
+        """
+        Checks for specific, common errors in adverb and adjective usage.
+        - Redundant comparatives (e.g., "più è più efficiente")
+        - Misplaced modifiers (e.g., "La dinamo più è...")
+        """
+        errors = []
+        text_lower = doc.text.lower()
+
+        # Check for redundant comparatives like "più è più"
+        # This is a strong heuristic for a common model failure mode.
+        if "più è più" in text_lower or "meno è meno" in text_lower:
+            errors.append("Linguistic error: Redundant comparative structure (e.g., 'più è più').")
+
+        # Check for misplaced modifiers, specifically 'più' acting as an adjective on a noun
+        # when it's not a pronoun. e.g., "La dinamo più è..."
+        for i in range(len(doc) - 2):
+            # Pattern: NOUN + "più" + VERB/AUX
+            if doc[i].pos_ == "NOUN" and doc[i+1].text.lower() == "più" and doc[i+2].pos_ in ["VERB", "AUX"]:
+                # This is a strong indicator of the "La dinamo più è..." error.
+                errors.append(f"Linguistic error: Misplaced modifier '{doc[i+1].text}' after noun '{doc[i].text}'.")
+                break
+
+        return errors
+
+    def _check_sentence_fragments(self, doc: spacy.tokens.Doc) -> List[str]:
+        """
+        Checks for sentence fragments, like a relative clause without a main clause.
+        e.g., "Il telo che è stato usato."
+        """
+        errors = []
+        for sent in doc.sents:
+            # Heuristic: If the root of the sentence is not the main verb (but part of a sub-clause),
+            # it's likely a fragment.
+            root = sent.root
+            # A common fragment starts with a relative pronoun ('che', 'cui')
+            has_subject = any(tok.dep_ in ("nsubj", "nsubj:pass") for tok in sent)
+            
+            if not has_subject and len(sent) > 2:
+                # If there's no nominal subject, it's likely a fragment unless it's a command.
+                if root.pos_ != "VERB" or "Imp" not in root.morph.get("Mood", []):
+                    errors.append(f"Linguistic error: Sentence appears to be a fragment (missing subject): '{sent.text}'")
+            if sent[0].pos_ in ["PRON", "SCONJ"] and sent[0].text.lower() == "che":
+                 # If the root's head is itself (meaning it's the top of the tree) and it's not a main clause...
+                 if root.head == root and root.dep_ != "ROOT":
+                     errors.append(f"Linguistic error: Sentence appears to be a fragment (e.g., a relative clause without a main clause): '{sent.text}'")
         return errors
 
     def _check_preposition_usage(self, doc: spacy.tokens.Doc, text: str) -> List[str]:
@@ -396,6 +436,53 @@ class LinguisticScorer(BaseScorer):
                                 f"Reflexive pronoun mismatch: '{token.text}' with '{verb.text}' "
                                 f"(pron: {pron_person[0]}p, verb: {verb_person[0]}p)"
                             )
+
+                # Check for incorrect placement of object pronouns with auxiliary verbs
+                # e.g., "La barchetta la è stata..." is wrong.
+                if token.dep_ == "obj" and token.head.pos_ == "AUX":
+                     # This is a strong heuristic. A direct object pronoun should not be a direct child of an auxiliary.
+                     # It should be attached to the main verb or be part of a different clause.
+                     errors.append(f"Pronoun placement error: Object pronoun '{token.text}' seems incorrectly attached to auxiliary '{token.head.text}'.")
+
+        return errors
+
+    def _check_subject_pronoun_redundancy(self, doc: spacy.tokens.Doc) -> List[str]:
+        """
+        Checks for redundant subject pronouns, which can sound unnatural.
+        e.g., "Io vado al mercato." is correct but "Vado al mercato." is more common.
+        """
+        errors = []
+        # These pronouns are often redundant if the verb form is unique
+        redundant_pronouns = {"io", "tu", "noi", "voi"}
+
+        for token in doc:
+            # Find a subject pronoun
+            if token.dep_ == "nsubj" and token.text.lower() in redundant_pronouns:
+                verb = token.head
+                # Check if it's a simple declarative sentence without contrast/emphasis
+                # Heuristic: if the sentence is short and has no conjunctions, the pronoun is likely redundant.
+                is_simple_clause = not any(c.dep_ == "conj" for c in verb.children)
+                
+                if verb.pos_ == "VERB" and is_simple_clause:
+                    # This is a "soft" error, indicating unnatural phrasing rather than a grammatical mistake.
+                    errors.append(f"Linguistic style: Subject pronoun '{token.text}' may be redundant.")
+                    break # Penalize only once per sentence for this style issue.
+        return errors
+
+    def _check_consecutive_repetition(self, doc: spacy.tokens.Doc) -> List[str]:
+        """
+        Checks for identical consecutive words, which is almost always an error.
+        e.g., "il camion trasporta trasporta merci"
+        """
+        errors = []
+        for i in range(len(doc) - 1):
+            token1 = doc[i]
+            token2 = doc[i+1]
+
+            # Check for identical text, ignoring case, for non-punctuation tokens
+            if token1.is_alpha and token2.is_alpha and token1.text.lower() == token2.text.lower():
+                errors.append(f"Linguistic error: Consecutive repetition of word '{token1.text}'.")
+                break # Penalize once for this severe error
 
         return errors
 
@@ -509,47 +596,54 @@ class LinguisticScorer(BaseScorer):
         Extract Italian text from exercise for analysis.
 
         Filters out English text (like "Translate:" prompts) to focus on Italian only.
+        For fill-in-the-blank, inserts the correct answer into the question.
         """
         import re
 
-        parts = []
+        text_to_analyze = ""
+        question_part = ""
+        answer_part = ""
 
         if "question" in exercise:
             question = exercise["question"]
             # Remove common English prompts
-            question = re.sub(
+            question_part = re.sub(
                 r"^(Translate|Fill in the blank|Choose the correct answer):\s*",
                 "",
                 question,
                 flags=re.IGNORECASE,
-            )
-            # Only include if it contains Italian-looking text (has Italian articles/words)
-            italian_indicators = [
-                "il",
-                "la",
-                "le",
-                "gli",
-                "lo",
-                "un",
-                "una",
-                "è",
-                "sono",
-                "di",
-                "a",
-                "per",
-                "che",
-            ]
-            if any(indicator in question.lower() for indicator in italian_indicators):
-                parts.append(question)
+            ).strip()
 
+        if exercise.get("type") == "fill_in_blank" and "correct_answer" in exercise:
+            # For fill-in-the-blank, insert the correct answer into the blank
+            # We assume only one blank for simplicity, replace first occurrence
+            text_to_analyze = question_part.replace("___", exercise["correct_answer"], 1)
+        elif question_part:
+            text_to_analyze = question_part
+
+        # Also consider the 'answer' field, especially for translation exercises
         if "answer" in exercise:
-            parts.append(exercise["answer"])
+            answer_part = exercise["answer"].strip()
+            if text_to_analyze:
+                text_to_analyze += " " + answer_part
+            else:
+                text_to_analyze = answer_part
 
-        return " ".join(parts)
+        # Heuristic to check if the extracted text is likely Italian
+        italian_indicators = [
+            "il", "la", "le", "gli", "lo", "un", "una", "è", "sono", "di", "a", "per", "che",
+            "ho", "hai", "ha", "abbiamo", "avete", "hanno", # common verb forms
+            "io", "tu", "lui", "lei", "noi", "voi", "loro" # common pronouns
+        ]
+        if text_to_analyze and any(indicator in text_to_analyze.lower() for indicator in italian_indicators):
+            return text_to_analyze
+        
+        return "" # Return empty string if no Italian text detected
+
 
     @property
     def max_score(self) -> float:
-        return 25.0
+        return 15.0
 
     @property
     def name(self) -> str:
