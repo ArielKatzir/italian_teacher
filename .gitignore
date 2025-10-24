@@ -142,6 +142,7 @@ models/pretrained/
 configs/production.yaml
 configs/secrets.yaml
 .secrets/
+.secrets.json
 
 # IDE specific
 .vscode/

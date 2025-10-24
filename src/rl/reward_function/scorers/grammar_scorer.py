@@ -8,11 +8,11 @@ from .base_llm_scorer import BaseLLMScorer
 class GrammarScorer(BaseLLMScorer):
     """
     Scores grammar correctness (0-10 points) using a batched LLM.
+    Uses models configured in SCORER_MODEL_CONFIG (base_llm_scorer.py).
     """
 
-    def __init__(self):
-        super().__init__()
-        self.model = "gpt-4o-mini"  # Explicitly set the model for this scorer
+    def __init__(self, llm_handler, **kwargs):
+        super().__init__(llm_handler, **kwargs)
 
     def get_prompt(self, exercises: List[Dict[str, Any]], request: Dict[str, Any]) -> str:
         grammar_focus = request.get("grammar_focus", "general")

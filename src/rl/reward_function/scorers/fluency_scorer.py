@@ -5,6 +5,7 @@ Validates natural language flow and construction.
 Uses rule-based checks and an LLM for subtle naturalness issues.
 """
 
+import json
 from collections import Counter
 from typing import Any, Dict, List, Tuple
 
@@ -25,14 +26,12 @@ class FluencyScorer(BaseLLMScorer):
     - LLM-based naturalness check for subtle issues
     """
 
-    def __init__(self, nlp: spacy.language.Language, use_llm: bool = False, disabled: bool = False):
-        # Initialize BaseLLMScorer only if LLM is used and not disabled
+    def __init__(self, nlp: spacy.language.Language, llm_handler, use_llm: bool = False, disabled: bool = False):
+        # Always initialize the parent class
+        super().__init__(llm_handler)
+        self.nlp = nlp
         if use_llm and not disabled:
-            super().__init__()
             print("  ✅ FluencyScorer: LLM checking is enabled.")
-        else:
-            # If not using LLM, we don't need the BaseLLMScorer's OpenAI client
-            self.nlp = nlp
         
         self.use_llm = use_llm and not disabled
         self.disabled = disabled
@@ -126,7 +125,6 @@ For each text, rate it on a scale of 0-10 for fluency and naturalness:
 
 Respond ONLY with a JSON object:
 {{"score": <number 0-10>, "issue": "<brief explanation if score < 8, empty string otherwise>"}}"""
-"""
 
     @property
     def max_score(self) -> float:

@@ -103,13 +103,15 @@ class AsyncMultiReward:
             except Exception:
                 parsed_data.append((None, req, False, completion))  # Store completion for debug
 
-        # --- Step 2: Score all completions in parallel using the new batched architecture ---
+        # --- Step 2: Score all completions in parallel (semaphore controls concurrency) ---
         print(f"⏳ Step 2/3: Scoring {len(parsed_data)} completions with batched reward function...")
+
+        # With increased connection pool size, we can process all completions at once
+        # The semaphore limits concurrent API calls to stay within comfortable limits
+        # Gemini supports 4000 RPM, so high concurrency is fine
         score_tasks = []
         for exercises, req, success, _ in parsed_data:
             if success and exercises:
-                # The new `score_exercises` method is highly efficient.
-                # It handles both CPU and batched LLM scoring internally.
                 score_tasks.append(self.reward_fn.score_exercises(exercises, req, self.reward_fn.semaphore))
             else:
                 # For failed parses, create a dummy task that returns a penalty score.
@@ -117,8 +119,14 @@ class AsyncMultiReward:
                     return 0.0, []
                 score_tasks.append(dummy_task())
 
-        # Run all scoring tasks concurrently
+        # Process all tasks (semaphore throttles to safe concurrency level)
         all_results = await asyncio.gather(*score_tasks)
+
+        # Log model usage stats from the handler
+        # Access the shared llm_handler directly from the reward_fn_instance
+        if hasattr(self.reward_fn, 'llm_handler') and self.reward_fn.llm_handler:
+            self.reward_fn.llm_handler.log_stats() # Call the method on the handler instance
+
 
         # --- Step 3: Compute CPU-bound scores and aggregate all results ---
         print(f"⏳ Step 3/3: Computing CPU-bound rewards and aggregating results...")

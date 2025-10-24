@@ -13,11 +13,11 @@ from .base_llm_scorer import BaseLLMScorer
 class CEFRScorer(BaseLLMScorer):
     """
     Scores CEFR level alignment (0-20 points) using a batched LLM.
+    Uses models configured in SCORER_MODEL_CONFIG (base_llm_scorer.py).
     """
 
-    def __init__(self):
-        super().__init__()
-        self.model = "gpt-4o-mini"  # Explicitly set the model for this scorer
+    def __init__(self, llm_handler):
+        super().__init__(llm_handler)
 
     def get_prompt(self, exercises: List[Dict[str, Any]], request: Dict[str, Any]) -> str:
         level = request.get("level", "A2").upper()

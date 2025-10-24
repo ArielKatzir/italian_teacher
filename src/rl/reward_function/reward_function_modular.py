@@ -34,6 +34,7 @@ try:
         CoherenceScorer,
         ExerciseQualityScorer,
         FluencyScorer,
+        LLMAPIHandler,
         GrammarScorer,
         JSONScorer,
         LinguisticScorer,
@@ -43,6 +44,7 @@ except ImportError:
     from src.rl.reward_function.scorers import (
         CEFRScorer,
         CoherenceScorer,
+        LLMAPIHandler,
         ExerciseQualityScorer,
         FluencyScorer,
         GrammarScorer,
@@ -115,6 +117,10 @@ class ExerciseRewardFunction:
             fluency_use_llm: Specifically enable the LLM component of the FluencyScorer.
             concurrency_limit: Max number of concurrent OpenAI API calls.
         """
+        # Handle None default for disabled_scorers (avoid mutable default argument)
+        if disabled_scorers is None:
+            disabled_scorers = []
+
         try:
             # Load Italian NLP model
             print(f"Loading spaCy model: {spacy_model}...")
@@ -129,16 +135,20 @@ class ExerciseRewardFunction:
         print(f"Reward function will use device: {self.device}")
         self.semaphore = asyncio.Semaphore(concurrency_limit)
 
+        # Create a single, shared LLM API handler
+        self.llm_handler = LLMAPIHandler()
+
         # Initialize individual scorers
         print("Initializing scorers...")
         all_scorers = {
             "json": JSONScorer(nlp=None),  # Doesn't need NLP
             "quality": ExerciseQualityScorer(nlp=self.nlp),  # Context validation, redundancy
             "linguistic": LinguisticScorer(nlp=self.nlp),
-            "cefr": CEFRScorer(),  # Fully LLM-based, does not use spaCy
-            "fluency": FluencyScorer(nlp=self.nlp, use_llm=fluency_use_llm, disabled="fluency" in disabled_scorers),
-            "grammar": GrammarScorer(),  # Fully LLM-based, does not use spaCy
-            "coherence": CoherenceScorer(),  # Fully LLM-based, does not use spaCy
+            # Pass the shared handler to all LLM-based scorers
+            "cefr": CEFRScorer(self.llm_handler),
+            "fluency": FluencyScorer(nlp=self.nlp, llm_handler=self.llm_handler, use_llm=fluency_use_llm, disabled="fluency" in disabled_scorers),
+            "grammar": GrammarScorer(self.llm_handler),
+            "coherence": CoherenceScorer(self.llm_handler),
             "topic": TopicScorer(nlp=None, device=self.device),  # Uses sentence transformer
         }
 
@@ -261,36 +271,70 @@ class ExerciseRewardFunction:
             return 0.0, []
 
         # --- 1. Run all CPU-bound scorers for all exercises ---
-        # This is simplified. We'll run them per exercise for now.
-        # A more advanced implementation could batch these if the scorers support it.
         cpu_scorers = {name: scorer for name, scorer in self.scorers.items() if name in ["json", "quality", "linguistic", "topic"]}
         cpu_results_by_exercise = [{} for _ in exercises]
-        
+
         loop = asyncio.get_running_loop()
+        # print("  - Running CPU-bound scorers...")  # Commented out to reduce log noise
         for name, scorer in cpu_scorers.items():
-            tasks = [loop.run_in_executor(None, scorer.score, ex, request) for ex in exercises]
-            results = await asyncio.gather(*tasks)
-            for i, result in enumerate(results):
-                cpu_results_by_exercise[i][name] = result
+            try:
+                tasks = [loop.run_in_executor(None, scorer.score, ex, request) for ex in exercises]
+                results = await asyncio.gather(*tasks)
+                for i, result in enumerate(results):
+                    cpu_results_by_exercise[i][name] = result
+                # print(f"    ✅ {name}: success")  # Commented out to reduce log noise
+            except Exception as e:
+                print(f"    ❌ {name}: failed with {e}")
+
 
         # --- 2. Run batch-level JSON checks ---
         batch_json_score = 0.0
         batch_json_errors = []
         if "json" in self.scorers:
-            batch_json_score, batch_json_errors = self.scorers["json"].score_batch(exercises, request)
-            # Apply this batch penalty to all exercises in the breakdown
+            try:
+                batch_json_score, batch_json_errors = self.scorers["json"].score_batch(exercises, request)
+                # print(f"    ✅ json (batch): success")  # Commented out to reduce log noise
+            except Exception as e:
+                print(f"    ❌ json (batch): failed with {e}")
 
 
         # --- 3. Run all I/O-bound (LLM) scorers in a single batched call per scorer ---
-        io_tasks = [
-            self.scorers["grammar"].score_batch(exercises, request, semaphore) if "grammar" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
-            self.scorers["coherence"].score_batch(exercises, request, semaphore) if "coherence" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
-            self.scorers["cefr"].score_batch(exercises, request, semaphore) if "cefr" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
-            self.scorers["fluency"].score_batch(exercises, request, semaphore) if "fluency" in self.scorers and self.scorers["fluency"].use_llm else asyncio.sleep(0, [(10.0, [])] * len(exercises)),
-        ]
-        grammar_results, coherence_results, cefr_results, fluency_results = await asyncio.gather(*io_tasks)
+        # print("  - Running I/O-bound (LLM) scorers...")  # Commented out to reduce log noise
+        io_tasks = {
+            "grammar": self.scorers["grammar"].score_batch(exercises, request, semaphore) if "grammar" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
+            "coherence": self.scorers["coherence"].score_batch(exercises, request, semaphore) if "coherence" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
+            "cefr": self.scorers["cefr"].score_batch(exercises, request, semaphore) if "cefr" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
+            "fluency": self.scorers["fluency"].score_batch(exercises, request, semaphore) if "fluency" in self.scorers and self.scorers["fluency"].use_llm else asyncio.sleep(0, [(10.0, [])] * len(exercises)),
+        }
+
+        # Add timeout protection to prevent hanging (90s total for all scorers to try multiple providers)
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(*io_tasks.values(), return_exceptions=True),
+                timeout=90.0
+            )
+        except asyncio.TimeoutError:
+            # print("    ⚠️  LLM scorers timed out after 90s, using default scores")  # Commented out to reduce log noise
+            results = [[(5.0, [f"{name} timed out"])] * len(exercises) for name in io_tasks.keys()]
+        
+        results_map = dict(zip(io_tasks.keys(), results))
+
+        def get_io_results(name):
+            result = results_map.get(name)
+            if isinstance(result, Exception):
+                # print(f"    ❌ {name}: failed with {result}")  # Commented out to reduce log noise
+                return [(0.0, [f"{name} scorer failed: {result}"]) for _ in exercises]
+            # print(f"    ✅ {name}: success")  # Commented out to reduce log noise
+            return result
+
+        grammar_results = get_io_results("grammar")
+        coherence_results = get_io_results("coherence")
+        cefr_results = get_io_results("cefr")
+        fluency_results = get_io_results("fluency")
+
 
         # --- 4. Combine all results for each exercise ---
+        # print("  - Aggregating results...")  # Commented out to reduce log noise
         results = []
         for i in range(len(exercises)):
             # Get CPU scores
@@ -328,6 +372,7 @@ class ExerciseRewardFunction:
         total_score = sum(score for score, breakdown in results)
 
         avg_score = total_score / len(exercises) if exercises else 0.0
+        # print("  - Scoring complete.")  # Commented out to reduce log noise
         return avg_score, results
 
 
