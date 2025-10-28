@@ -32,6 +32,7 @@ class TopicScorer(BaseScorer):
 
         # Check if OpenAI API is available for contextual relevance
         self.use_llm = os.environ.get("OPENAI_API_KEY") is not None
+        self.daily_limit_hit = False  # Track if we've hit daily limit
         if self.use_llm:
             try:
                 from openai import OpenAI
@@ -91,7 +92,8 @@ class TopicScorer(BaseScorer):
             # Optional: Use LLM for contextual relevance check (if score is borderline)
             # This helps catch cases where embedding similarity is low but context is good
             # e.g., "shoes" + "tied", "run" vs "shoes" + random words
-            if self.use_llm and 4.0 <= score <= 7.0:
+            # Skip LLM check if we've hit daily limit
+            if self.use_llm and not self.daily_limit_hit and 4.0 <= score <= 7.0:
                 llm_score, llm_errors = self._check_topic_with_llm(text, exercise, request, topic)
                 # LLM can adjust borderline scores up or down
                 score = llm_score
@@ -164,7 +166,17 @@ Respond ONLY with a JSON object:
 
         except Exception as e:
             # If LLM check fails, return original embedding-based score
-            print(f"  ⚠️ LLM topic check failed: {e}")
+            error_msg = str(e)
+
+            # Check if this is a daily limit error
+            if "requests per day" in error_msg.lower() or "rpd:" in error_msg.lower():
+                if not self.daily_limit_hit:
+                    print(f"  🚫 LLM topic check: daily limit reached, disabling for session")
+                    self.daily_limit_hit = True
+            # Only log non-rate-limit errors (rate limits are handled elsewhere)
+            elif "429" not in error_msg and "rate limit" not in error_msg.lower():
+                print(f"  ⚠️ LLM topic check failed: {error_msg[:100]}")
+
             return 7.0, []  # Neutral score for borderline cases
 
     def _extract_italian_text(self, exercise: Dict[str, Any]) -> str:

@@ -26,28 +26,29 @@ import httpx
 # Model configurations per provider
 # Format: (provider, model_name, cost_per_1k_tokens, avg_latency_seconds)
 # IMPORTANT: Keep these model names in sync with SCORER_MODEL_CONFIG in base_llm_scorer.py
+# ORDER MATTERS: Fallback tries models in this dictionary order
 MODEL_POOL = {
-    "gemini": [
-        ("gemini", "gemini-2.0-flash", 0.001, 5),
-        ("gemini", "gemini-2.5-flash", 0.001, 20),
-        ("gemini", "gemini-2.5-flash-lite", 0.0005, 2),
-    ],
-    "openai": [
-        ("openai", "gpt-4o-mini", 0.002, 3),
-        ("openai", "gpt-4.1-nano", 0.001, 5),
-        ("openai", "gpt-4.1-mini", 0.002, 5),
-    ],
-    "anthropic": [
-        ("anthropic", "claude-3-5-haiku-20241022", 0.001, 3),
-        ("anthropic", "claude-3-haiku-20240307", 0.0005, 2),
-    ],
     "groq": [
-        ("groq", "llama-3.1-8b-instant", 0.0, 1.8),  # FREE - fastest!
+        ("groq", "llama-3.1-8b-instant", 0.0, 1.8),  # FREE - fastest! Try first
         ("groq", "llama-3.3-70b-versatile", 0.0, 2.9),  # FREE - best quality
         ("groq", "llama-3.1-70b-versatile", 0.0, 2.5),  # FREE
     ],
+    "openai": [
+        ("openai", "gpt-4.1-nano", 0.001, 3),  # Fast and reliable - try before 4o-mini
+        ("openai", "gpt-4.1-mini", 0.002, 3),
+        ("openai", "gpt-4o-mini", 0.002, 3),
+    ],
+    "anthropic": [
+        ("anthropic", "claude-3-haiku-20240307", 0.0005, 2),  # Faster model first
+        ("anthropic", "claude-3-5-haiku-20241022", 0.001, 3),
+    ],
     "deepseek": [
-        ("deepseek", "deepseek-chat", 0.0001, 3),
+        ("deepseek", "deepseek-chat", 0.0001, 3),  # Slow but cheap - try after fast models
+    ],
+    "gemini": [
+        ("gemini", "gemini-2.5-flash-lite", 0.0005, 2),  # LAST RESORT - has RPM issues
+        ("gemini", "gemini-2.0-flash", 0.001, 5),
+        ("gemini", "gemini-2.5-flash", 0.001, 20),
     ],
     # Cerebras temporarily disabled due to model name issues
     # "cerebras": [
@@ -75,6 +76,18 @@ class LLMAPIHandler:
         self.key_indices = {}
         self.stats = {}
         self._log_thread = None
+
+        # Model-level cooldown tracking: "provider:model" -> timestamp of last failure
+        # This allows us to skip slow/failing models while still using other models from the same provider
+        self.model_failures = {}
+        self.cooldown_duration = 120  # 2 minutes in seconds (longer cooldown to keep failing models out of rotation)
+
+        # Track consecutive timeouts per model to trigger cooldown faster
+        self.model_timeout_counts = {}  # "provider:model" -> consecutive timeout count
+        self.timeout_threshold = 8  # Trigger cooldown after N consecutive timeouts (more lenient with request pacing)
+
+        # Track models that have hit daily limits - these are permanently disabled for this session
+        self.daily_limit_models = set()  # Set of "provider:model" keys that hit daily limits
 
         # Initialize each provider
         self._init_gemini()
@@ -200,6 +213,118 @@ class LLMAPIHandler:
                     return provider
         return None
 
+    def is_model_available(self, provider: str, model_name: str) -> bool:
+        """
+        Check if a specific model is available (not in cooldown or daily limit hit).
+
+        Returns True if model should be tried, False if in cooldown period or daily limit reached.
+        """
+        model_key = f"{provider}:{model_name}"
+
+        # Check if model hit daily limit - these are permanently disabled
+        if model_key in self.daily_limit_models:
+            return False
+
+        if model_key not in self.model_failures:
+            return True
+
+        # Check if cooldown period has expired
+        last_failure = self.model_failures[model_key]
+        time_since_failure = time.time() - last_failure
+
+        if time_since_failure >= self.cooldown_duration:
+            # Cooldown expired, remove from failures and allow retry
+            del self.model_failures[model_key]
+            print(f"    🔄 {model_key} → back online")
+            return True
+
+        return False
+
+    def mark_model_failed(self, provider: str, model_name: str):
+        """Mark a specific model as failed, starting cooldown period."""
+        model_key = f"{provider}:{model_name}"
+
+        if model_key not in self.model_failures:
+            self.model_failures[model_key] = time.time()
+            cooldown_secs = self.cooldown_duration
+            if cooldown_secs >= 60:
+                print(f"    ⏸️  {model_key} → cooldown ({cooldown_secs/60:.0f}m)")
+            else:
+                print(f"    ⏸️  {model_key} → cooldown ({cooldown_secs:.0f}s)")
+
+    def mark_model_daily_limit(self, provider: str, model_name: str):
+        """Permanently disable a model that has hit its daily limit."""
+        model_key = f"{provider}:{model_name}"
+
+        if model_key not in self.daily_limit_models:
+            self.daily_limit_models.add(model_key)
+            print(f"    🚫 {model_key} → daily limit reached (disabled for session)")
+
+    def track_timeout(self, provider: str, model_name: str):
+        """
+        Track a timeout for a specific model. If threshold is reached, trigger cooldown.
+        """
+        model_key = f"{provider}:{model_name}"
+        self.model_timeout_counts[model_key] = self.model_timeout_counts.get(model_key, 0) + 1
+
+        if self.model_timeout_counts[model_key] >= self.timeout_threshold:
+            # Too many consecutive timeouts, trigger cooldown
+            self.mark_model_failed(provider, model_name)
+            self.model_timeout_counts[model_key] = 0  # Reset count
+
+    def reset_timeout_count(self, provider: str, model_name: str):
+        """Reset timeout count for a specific model after successful call."""
+        model_key = f"{provider}:{model_name}"
+        if model_key in self.model_timeout_counts:
+            self.model_timeout_counts[model_key] = 0
+
+    def is_rpm_limit_error(self, error_msg: str) -> bool:
+        """
+        Detect if an error message indicates an RPM (requests per minute) limit.
+
+        Common patterns:
+        - OpenAI: "Rate limit reached", "requests per minute"
+        - Gemini: "429", "RESOURCE_EXHAUSTED"
+        - Anthropic: "429", "rate_limit_error"
+        """
+        error_lower = error_msg.lower()
+        rpm_indicators = [
+            "rate limit reached",
+            "requests per minute",
+            "rpm:",
+            "rate_limit_error",
+            "too many requests",
+        ]
+        return any(indicator in error_lower for indicator in rpm_indicators)
+
+    def is_daily_limit_error(self, error_msg: str) -> bool:
+        """
+        Detect if an error message indicates a daily limit has been reached.
+
+        Common patterns:
+        - OpenAI: "exceeded your current quota", "insufficient_quota", "requests per day (RPD)"
+        - Gemini: "quota exceeded" (different from rate limit)
+        - Groq: "daily limit", "per day"
+        """
+        error_lower = error_msg.lower()
+
+        # First check if it's an RPM error (not daily)
+        if self.is_rpm_limit_error(error_msg):
+            return False
+
+        daily_limit_indicators = [
+            "daily limit",
+            "requests per day",
+            "rpd:",
+            "quota exceeded",
+            "insufficient_quota",
+            "exceeded your current quota",
+            "quota exhausted",
+            "billing",
+            "payment required",
+        ]
+        return any(indicator in error_lower for indicator in daily_limit_indicators)
+
     async def call_llm(
         self,
         prompt: str,
@@ -224,8 +349,27 @@ class LLMAPIHandler:
         Raises:
             Exception if all providers fail
         """
-        # Organize models by preferred provider first
+        # Organize models by preferred provider first, but exclude models in cooldown
         models_to_try = self.available_models.copy()
+
+        # Filter out models that are in cooldown
+        models_to_try = [m for m in models_to_try if self.is_model_available(m[0], m[1])]
+
+        if not models_to_try:
+            # Show how many models are in cooldown vs daily limit
+            cooldown_count = len(self.model_failures)
+            daily_limit_count = len(self.daily_limit_models)
+
+            if daily_limit_count > 0:
+                print(f"    ⚠️  All models unavailable: {cooldown_count} in cooldown, {daily_limit_count} at daily limit. Waiting 30s...")
+            else:
+                print(f"    ⚠️  All {cooldown_count} models in cooldown, waiting 30s...")
+
+            await asyncio.sleep(30)
+            # After wait, allow all models to retry (except daily limit ones)
+            models_to_try = self.available_models.copy()
+
+        # Prioritize preferred provider's models, but still respect cooldowns
         if preferred_provider:
             preferred_models = [m for m in models_to_try if m[0] == preferred_provider]
             other_models = [m for m in models_to_try if m[0] != preferred_provider]
@@ -236,9 +380,9 @@ class LLMAPIHandler:
         attempts = []
 
         for provider, model_name, cost, avg_latency in models_to_try:
-            # Generous timeout: 10x avg latency to account for high concurrency and rate limiting
-            # Free tier APIs (Groq) can be slow under heavy load
-            attempt_timeout = min(avg_latency * 10.0, deadline - time.time(), 25.0)
+            # Timeout strategy: Give each model 4x its expected latency, max 10s per attempt
+            # With model-level cooldowns, we can be a bit more patient since we have many models to try
+            attempt_timeout = min(avg_latency * 4.0, deadline - time.time(), 10.0)
             if attempt_timeout <= 0:
                 break # Total timeout exceeded
 
@@ -258,23 +402,43 @@ class LLMAPIHandler:
                 else:
                     continue
 
-                # Success!
+                # Success! Reset timeout count for this model
                 elapsed = time.time() - start_time
                 self.stats[provider] = self.stats.get(provider, 0) + 1
+                self.reset_timeout_count(provider, model_name)  # Clear timeout tracking on success
+                # print(f"    ✅ {provider}:{model_name}")  # Debug: shows which model actually succeeded
                 return result, f"{provider}:{model_name}"
 
             except asyncio.TimeoutError as e:
                 last_error = f"{provider}:{model_name} timeout after {attempt_timeout:.1f}s"
-                # print(f"    ⚠️  {last_error}")  # Commented out to reduce log noise
+                # Removed verbose logging - only log cooldown triggers
+
+                # Track timeout for this specific model - will trigger cooldown after threshold
+                self.track_timeout(provider, model_name)
                 continue
             except Exception as e: # Catch all other errors
                 error_msg = str(e)
-                last_error = f"{provider}:{model_name} error: {error_msg}"
-                # print(f"    ⚠️  {last_error}")  # Commented out to reduce log noise
+                last_error = f"{provider}:{model_name} error: {error_msg[:150]}"
+
+                # Check error type and handle appropriately
+                if self.is_daily_limit_error(error_msg):
+                    # Permanently disable this model for the session
+                    self.mark_model_daily_limit(provider, model_name)
+                elif self.is_rpm_limit_error(error_msg):
+                    # RPM limit - just track timeout, will cooldown after threshold
+                    # This is less aggressive than marking as failed immediately
+                    self.track_timeout(provider, model_name)
+                    # Don't log every RPM error, too noisy
+                else:
+                    # Other errors - put on cooldown
+                    self.mark_model_failed(provider, model_name)
                 continue
 
-        # All providers failed
+        # All models failed - log detailed error
         tried_models = " → ".join(attempts) if attempts else "none"
+        print(f"    ❌ ALL MODELS FAILED! Tried: {tried_models}")
+        if last_error:
+            print(f"       Last error: {last_error[:200]}")
         raise Exception(f"All LLM providers failed (tried: {tried_models}). Last error: {last_error}")
 
     async def _call_gemini(self, model_name: str, prompt: str, system_prompt: str, json_schema: Dict, timeout: float) -> str:
@@ -377,6 +541,19 @@ class LLMAPIHandler:
     def log_stats(self):
         """Prints the model usage distribution for the current batch and resets stats."""
         total_api_calls = sum(self.stats.values())
+
+        if total_api_calls == 0:
+            # No successful API calls - this is a critical error!
+            cooldown_count = len(self.model_failures)
+            daily_limit_count = len(self.daily_limit_models)
+            print(f"\n   ❌ WARNING: 0 successful LLM calls!")
+            print(f"      {cooldown_count} models in cooldown, {daily_limit_count} at daily limit")
+            if self.daily_limit_models:
+                print(f"      Daily limits: {', '.join(sorted(self.daily_limit_models))}")
+            print(f"      💡 TIP: Likely hitting RPM (requests/minute) limits")
+            print(f"      💡 Solution: Reduce batch size or add request pacing")
+            return
+
         if total_api_calls > 0:
             print(f"\n   📊 Model Usage Distribution ({total_api_calls} total requests):")
             # Sort by usage count (descending)
@@ -397,7 +574,11 @@ class LLMAPIHandler:
                 else:
                     emoji = "❓"
                 print(f"      {emoji} {provider_name.capitalize()}: {count}/{total_api_calls} ({percentage:.1f}%)")
-        
+
+        # Show models that hit daily limits (important for user to know)
+        if self.daily_limit_models:
+            print(f"   🚫 Daily limits reached: {', '.join(sorted(self.daily_limit_models))}")
+
         self.reset_stats()
 
     def log_stats_periodically(self, interval: int = 10):

@@ -34,6 +34,15 @@ class ExerciseQualityScorer(BaseScorer):
         answer = exercise.get("correct_answer", exercise.get("answer", ""))
         exercise_type = exercise.get("type", "")
 
+        # Ensure question and answer are strings (handle cases where they might be lists)
+        if isinstance(question, list):
+            question = " ".join(str(q) for q in question) if question else ""
+        question = str(question) if question else ""
+
+        if isinstance(answer, list):
+            answer = " ".join(str(a) for a in answer) if answer else ""
+        answer = str(answer) if answer else ""
+
         # CRITICAL CHECK 1: Context sufficiency for fill-in-blank (10 pts) [BLOCKING]
         # And single blank enforcement
         context_score = 10.0

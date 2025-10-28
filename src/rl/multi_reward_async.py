@@ -38,6 +38,11 @@ class AsyncMultiReward:
         self.reward_fn = reward_fn
         self.use_openai = use_openai
 
+        # Debug tracking for multi-generation verification
+        self.call_count = 0
+        self.completion_count = 0
+        self.last_step = None
+
         if use_openai and os.environ.get("OPENAI_API_KEY"):
             # The semaphore is now managed inside ExerciseRewardFunction
             pass
@@ -47,6 +52,32 @@ class AsyncMultiReward:
     def __call__(
         self, prompts=None, completions=None, completion_ids=None, trainer_state=None, **kwargs
     ):
+        # --- Multi-generation verification tracking ---
+        current_step = trainer_state.global_step if trainer_state else 0
+        if current_step != self.last_step:
+            # New training step - reset counters and report previous step
+            if self.last_step is not None:
+                print(f"\n🔍 Step {self.last_step} TOTAL: {self.call_count} reward calls, {self.completion_count} completions scored")
+            self.last_step = current_step
+            self.call_count = 0
+            self.completion_count = 0
+
+        self.call_count += 1
+        self.completion_count += len(completions) if completions else 0
+        print(f"   [Call #{self.call_count} for step {current_step}: scoring {len(completions) if completions else 0} completions]")
+
+        # --- DEBUG CODE: Disabled by default ---
+        # Uncomment to save completions for debugging
+        # if trainer_state and completions:
+        #     step = trainer_state.global_step
+        #     if step < 5:
+        #         try:
+        #             log_path = f"trl_completions_step_{step}.json"
+        #             with open(log_path, "w") as f:
+        #                 json.dump(completions, f, indent=2)
+        #             print(f"\n--- DEBUG: Saved {len(completions)} completions to {log_path} ---\n")
+        #         except Exception as e:
+        #             print(f"\n--- DEBUG: Failed to save completions: {e} ---\n")
         """
         TRL-compatible reward function.
         """
@@ -63,14 +94,14 @@ class AsyncMultiReward:
                 "Warning: nest_asyncio not installed. This may cause issues in Jupyter notebooks."
             )
 
-        rewards = asyncio.run(self._process_batch(completions, requests))
+        rewards = asyncio.run(self._process_batch(prompts, completions, requests))
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
         return rewards
 
-    async def _process_batch(self, completions, requests):
+    async def _process_batch(self, prompts, completions, requests):
         """
         Process batch with parallel OpenAI calls.
         """
@@ -87,11 +118,46 @@ class AsyncMultiReward:
         print(f"\n⏳ Step 1/3: Parsing {len(completions)} JSON completions...")
         parsed_data = []
         invalid_exercise_count = 0
-        for completion, req in tqdm(
-            zip(completions, requests), total=len(completions), desc="Parsing JSON", leave=False
-        ):
+        parse_failures = 0
+        empty_results = 0
+
+        if not requests:
+            # Handle case where requests might be empty
+            expanded_requests = [None] * len(completions)
+            num_generations = 1
+        else:
+            if len(completions) % len(requests) != 0:
+                print(f"⚠️  Warning: Inconsistent batch sizes. Completions ({len(completions)}) is not a multiple of requests ({len(requests)}).")
+                # Fallback to avoid crashing, though this indicates a deeper issue
+                num_generations = len(completions) // len(requests) if len(requests) > 0 else 0
+                expanded_requests = [req for req in requests for _ in range(num_generations)]
+                expanded_requests.extend([requests[-1]] * (len(completions) - len(expanded_requests))) # Pad with last request
+            else:
+                num_generations = len(completions) // len(requests) if len(requests) > 0 else 0
+                expanded_requests = [req for req in requests for _ in range(num_generations)]
+
+        # Expand prompts to match completions
+        if prompts:
+            expanded_prompts = [p for p in prompts for _ in range(num_generations)]
+        else:
+            expanded_prompts = [None] * len(completions)
+
+        for i, (completion, req) in enumerate(tqdm(
+            zip(completions, expanded_requests), total=len(completions), desc="Parsing JSON", leave=False
+        )):
             try:
-                exercises = self._parse_exercises(completion)
+                # CRITICAL FIX v2: Find the assistant marker and parse text *after* it.
+                # This is more robust than startswith() which can fail on subtle tokenization diffs.
+                assistant_marker = "assistant<|end_header_id|>"
+                marker_pos = completion.rfind(assistant_marker) # Use rfind to get the last occurrence
+
+                if marker_pos != -1:
+                    response_text = completion[marker_pos + len(assistant_marker):]
+                else:
+                    # If marker is not found, it's a sign of a problem, but we still try to parse the whole thing.
+                    response_text = completion
+                
+                exercises = self._parse_exercises(response_text)
                 # Check if any exercises are not dicts (malformed JSON)
                 if exercises and not all(isinstance(ex, dict) for ex in exercises):
                     invalid_exercise_count += 1
@@ -99,9 +165,24 @@ class AsyncMultiReward:
                         print(f"\n⚠️  WARNING: Parsed exercises contain non-dict items!")
                         print(f"   Types found: {[type(ex).__name__ for ex in exercises]}")
                         print(f"   First 200 chars of completion: '{completion[:200]}'")
+
+                if not exercises:  # Track empty results
+                    empty_results += 1
+
                 parsed_data.append((exercises, req, True, completion))  # Store completion for debug
-            except Exception:
+            except Exception as e:
+                parse_failures += 1
                 parsed_data.append((None, req, False, completion))  # Store completion for debug
+                # if parse_failures < 4: # Log the first 3 failures for debugging
+                    # print(f"\n--- PARSE FAILURE #{parse_failures} ---")
+                    # print(f"Error: {e}")
+                    # print(f"Failed to parse completion (first 500 chars):\n---\n{completion[:500]}\n---")
+
+        # Log parse statistics
+        successful_parses = len(completions) - parse_failures
+        scorable = sum(1 for exercises, _, success, _ in parsed_data if success and exercises)
+        print(f"   Parse stats: {successful_parses}/{len(completions)} valid JSON ({successful_parses/len(completions)*100:.1f}%), "
+              f"{empty_results} empty, {parse_failures} failed → {scorable} scorable")
 
         # --- Step 2: Score all completions in parallel (semaphore controls concurrency) ---
         print(f"⏳ Step 2/3: Scoring {len(parsed_data)} completions with batched reward function...")
@@ -185,6 +266,8 @@ class AsyncMultiReward:
         answer_diversity = 0.5
         if len(valid_exercises) >= 2:
             answers = [ex.get("correct_answer", "") for ex in valid_exercises]
+            # Ensure all answers are strings (handle cases where they might be lists)
+            answers = [" ".join(str(a) for a in ans) if isinstance(ans, list) else str(ans) for ans in answers]
             unique = len(set(answers))
             answer_diversity = unique / len(answers)
 

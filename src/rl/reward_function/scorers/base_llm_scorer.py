@@ -24,68 +24,64 @@ except ImportError:
 
 
 # Centralized model configuration per scorer
-# OPTIMIZED FOR SPEED + COST: FREE ultra-fast models first (Groq, Cerebras), then cheap paid fallbacks
-# Based on benchmark results (2025):
-#   - Groq llama-3.1-8b-instant: 1.8s, FREE (fastest!)
-#   - Cerebras llama-3.1-70b: 1.9s, FREE
-#   - Groq llama-3.3-70b: 2.9s, FREE (best quality free)
-#   - OpenAI gpt-4.1-nano: 4.2s, $0.13/1K (best paid value)
-#   - Gemini 2.5-flash-lite: 26s, $0.049/1K (slow but cheapest)
-# Training time with FREE models: ~50-60 minutes (vs 2+ hours with Gemini)
+# OPTIMIZED FOR BALANCED LOAD DISTRIBUTION
+# Strategy: Each scorer starts with a DIFFERENT provider to spread load evenly
+# Priority: Groq (fast) → DeepSeek (cheap) → OpenAI (reliable) → Anthropic → Gemini (backup)
 SCORER_MODEL_CONFIG = {
     "grammar_correctness": {
-        # LOAD DISTRIBUTION: Each scorer starts with a DIFFERENT provider for even distribution
-        # Grammar scorer: Start with Gemini (cheap), then alternate
+        # Grammar: Start with Groq for speed
         "models": [
-            "gemini-2.5-flash-lite",     # 2s, $0.049/1K - Gemini (cheap, START HERE)
-            "llama-3.1-8b-instant",      # 1.8s, FREE - Groq (fast)
-            "gpt-4.1-nano",              # 4.2s, $0.13/1K - OpenAI
-            "gemini-2.0-flash",          # 5s, $0.098/1K - Gemini (backup)
-            "llama-3.3-70b-versatile",   # 2.9s, FREE - Groq 70B
-            "gpt-4o-mini",               # 4.8s, $0.195/1K - OpenAI
-            "llama-3.1-70b-versatile",   # 2.5s, FREE - Groq
-            "gemini-2.5-flash",          # 20s, $0.098/1K - Gemini (slow)
-        ],
-        "default": "gemini-2.5-flash-lite"
-    },
-    "cefr_alignment": {
-        # CEFR scorer: Start with OpenAI (fast paid), then alternate
-        "models": [
-            "gpt-4.1-nano",              # 4.2s, $0.13/1K - OpenAI (START HERE)
-            "gemini-2.0-flash",          # 5s, $0.098/1K - Gemini
-            "llama-3.3-70b-versatile",   # 2.9s, FREE - Groq 70B (quality)
-            "gpt-4o-mini",               # 4.8s, $0.195/1K - OpenAI (backup)
-            "gemini-2.5-flash-lite",     # 2s, $0.049/1K - Gemini (cheap)
-            "llama-3.1-8b-instant",      # 1.8s, FREE - Groq 8B
-            "claude-3-5-haiku-20241022", # 7.1s, $0.375/1K - Anthropic
-            "llama-3.1-70b-versatile",   # 2.5s, FREE - Groq
-        ],
-        "default": "gpt-4.1-nano"
-    },
-    "coherence": {
-        # Coherence scorer: Start with Groq (free, fast), then alternate
-        "models": [
-            "llama-3.1-8b-instant",      # 1.8s, FREE - Groq 8B (START HERE)
-            "gpt-4.1-nano",              # 4.2s, $0.13/1K - OpenAI
-            "gemini-2.5-flash-lite",     # 2s, $0.049/1K - Gemini
-            "llama-3.3-70b-versatile",   # 2.9s, FREE - Groq 70B (backup)
-            "gpt-4o-mini",               # 4.8s, $0.195/1K - OpenAI
-            "gemini-2.0-flash",          # 5s, $0.098/1K - Gemini
-            "llama-3.1-70b-versatile",   # 2.5s, FREE - Groq
+            "llama-3.1-8b-instant",      # Groq - fast and free
+            "deepseek-chat",             # DeepSeek - very cheap
+            "gpt-4.1-nano",              # OpenAI - reliable
+            "llama-3.3-70b-versatile",   # Groq 70B - better quality
+            "claude-3-haiku-20240307",   # Anthropic - backup
+            "gemini-2.5-flash-lite",     # Gemini - last resort
+            "gpt-4o-mini",               # OpenAI - backup
+            "llama-3.1-70b-versatile",   # Groq - backup
         ],
         "default": "llama-3.1-8b-instant"
     },
-    "fluency": {
-        # Fluency scorer: Start with OpenAI (different from CEFR), then alternate
+    "cefr_alignment": {
+        # CEFR: Start with DeepSeek for cost efficiency
         "models": [
-            "gpt-4o-mini",               # 4.8s, $0.195/1K - OpenAI (START HERE)
-            "gemini-2.0-flash",          # 5s, $0.098/1K - Gemini
-            "llama-3.1-8b-instant",      # 1.8s, FREE - Groq
-            "gpt-4.1-nano",              # 4.2s, $0.13/1K - OpenAI (backup)
-            "gemini-2.5-flash-lite",     # 2s, $0.049/1K - Gemini
-            "llama-3.3-70b-versatile",   # 2.9s, FREE - Groq 70B
+            "deepseek-chat",             # DeepSeek - very cheap
+            "llama-3.3-70b-versatile",   # Groq 70B - quality
+            "gpt-4.1-nano",              # OpenAI - reliable
+            "llama-3.1-8b-instant",      # Groq - fast
+            "claude-3-5-haiku-20241022", # Anthropic - backup
+            "gpt-4.1-mini",               # OpenAI - backup
+            "gemini-2.0-flash",          # Gemini - backup
+            "llama-3.1-70b-versatile",   # Groq - backup
         ],
-        "default": "gpt-4o-mini"
+        "default": "deepseek-chat"
+    },
+    "coherence": {
+        # Coherence: Start with OpenAI for reliability
+        "models": [
+            "gpt-4.1-nano",              # OpenAI - reliable
+            "llama-3.1-8b-instant",      # Groq - fast
+            "deepseek-chat",             # DeepSeek - cheap
+            "llama-3.3-70b-versatile",   # Groq 70B - quality
+            "claude-3-haiku-20240307",   # Anthropic - backup
+            "gpt-4.1-mini",               # OpenAI - backup
+            "gemini-2.5-flash-lite",     # Gemini - backup
+            "llama-3.1-70b-versatile",   # Groq - backup
+        ],
+        "default": "gpt-4.1-nano"
+    },
+    "fluency": {
+        # Fluency: Start with Anthropic for variety
+        "models": [
+            "claude-3-haiku-20240307",   # Anthropic - different perspective
+            "deepseek-chat",             # DeepSeek - cheap
+            "llama-3.1-8b-instant",      # Groq - fast
+            "gpt-4.1-nano",              # OpenAI - reliable
+            "llama-3.3-70b-versatile",   # Groq 70B - quality
+            "gpt-4o-mini",               # OpenAI - backup
+            "gemini-2.0-flash",          # Gemini - backup
+        ],
+        "default": "claude-3-haiku-20240307"
     },
 }
 
@@ -169,7 +165,8 @@ class BaseLLMScorer(BaseScorer):
             await semaphore.acquire()
 
         # Add jitter to prevent all concurrent requests from hitting API simultaneously
-        jitter = random.uniform(0.05, 0.2)
+        # Use 0.5-2.0s jitter to stay within RPM (requests per minute) limits
+        jitter = random.uniform(0.5, 2.0)
         await asyncio.sleep(jitter)
 
         final_results = [(5.0, ["Scoring failed."])] * len(exercises)
