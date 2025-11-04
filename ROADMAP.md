@@ -7,7 +7,7 @@ An AI-powered Italian language teaching platform with personalized homework gene
 **Current Phase**: Phase 4 - Exercise Generation Model Complete ✅
 
 **Status**:
-- ✅ Phase 1-2: Marco v3 conversation model trained and deployed
+- ✅ Phase 1-2: Fine-tuned conversation model trained and deployed
 - ✅ Phase 3: Teacher/Student CLI with background GPU generation working
 - ✅ Phase 4: Exercise generation model trained (models/italian_exercise_generator_lora)
 - 📋 Phase 5+: Platform features and multi-agent system (FUTURE)
@@ -23,7 +23,7 @@ An AI-powered Italian language teaching platform with personalized homework gene
 - [x] **Event bus and coordination protocols** (coordinator.py, agent_events.py)
 - [x] **Conversation state management** with caching and persistence
 - [x] **Error tolerance and motivation systems** (motivation_context.py, error_tolerance.py)
-- [x] **Marco agent implementation** (marco_agent.py - 15k+ lines!)
+- [x] **Agent implementation** with personality system
 - [x] **Educational question system** (educational/ directory)
 - [x] **Testing framework** with comprehensive test suite
 
@@ -99,9 +99,9 @@ An AI-powered Italian language teaching platform with personalized homework gene
 
 #### Phase 2.4.2: v2 Contamination Discovery & Clean Solution ✅ COMPLETED
 - [x] **❌ CRITICAL ISSUE FOUND: German Contamination in Qwen Generation**
-  - [x] **26.5% contamination rate**: Qwen2.5-3B generating German words ("bitte", "bito") in Italian responses
+  - [x] **26.5% contamination rate**: Qwen2.5-3B generating German words in Italian responses
   - [x] **Root cause identified**: Multilingual model leakage corrupting Italian training data
-  - [x] **Training impact**: Model learned nonsensical patterns like "bitte, mio caro amico!"
+  - [x] **Training impact**: Model learned nonsensical patterns
 - [x] **✅ CLEAN SOLUTION: GPT-4o Mini Regeneration**
   - [x] **Zero contamination guarantee**: GPT-4o Mini eliminates multilingual leakage
   - [x] **Level-specific templates**: Explicit CEFR requirements (A1→C2 complexity scaling)
@@ -123,7 +123,7 @@ An AI-powered Italian language teaching platform with personalized homework gene
   - [x] **Authentic context**: Real learner questions preserved with professional responses
   - [x] **Educational quality**: Level-appropriate content with proper complexity scaling
 
-### 2.5 Marco Teaching Model v3 with Clean Dataset (Weeks 10-11) - **✅ COMPLETED**
+### 2.5 Teaching Model v3 with Clean Dataset (Weeks 10-11) - **✅ COMPLETED**
 
 #### Phase 2.5.1: LoRA Training with v3 Clean Dataset ✅ COMPLETED
 - [x] **Execute v3 LoRA Training with Clean Data**
@@ -132,14 +132,14 @@ An AI-powered Italian language teaching platform with personalized homework gene
   - [x] **Quality Advantage**: Professional pedagogical responses with authentic learner questions
   - [x] **Results**: High-quality Italian teaching without contamination artifacts ✅
 - [x] **Optimized Training Configuration (Proven Setup)**
-  - [x] **Model**: Minerva-7B-base-v1.0 (Italian-specialized base model)
+  - [x] **Model**: Italian-specialized base model
   - [x] **LoRA Settings**: r=16, alpha=32, 7 target modules (validated config)
   - [x] **Training**: L4 GPU optimized, max_length=1800, batch_size=9
   - [x] **Actual Training Time**: ~2-3 hours on L4 GPU (faster than expected)
 
 #### Phase 2.5.2: v3 Model Evaluation and Production Deployment ✅ COMPLETED
 - [x] **Compare v3 vs Base Model Performance**
-  - [x] **Clean vs Contaminated**: ✅ v3 eliminates nonsensical German responses
+  - [x] **Clean vs Contaminated**: ✅ v3 eliminates nonsensical responses
   - [x] **Teaching Quality**: ✅ Excellent pedagogical accuracy and educational value
   - [x] **Professional Structure**: ✅ Proper grammatical analysis and cultural insights
   - [x] **Training Success**: Final loss 0.337 (60% improvement from 0.844)
@@ -148,16 +148,16 @@ An AI-powered Italian language teaching platform with personalized homework gene
   - [x] **Training Documentation**: Complete v3 dataset evolution documented
 
 #### Phase 2.5.3: v3 Results Analysis & v4 Planning ✅ COMPLETED
-- [x] **✅ BREAKTHROUGH SUCCESS: Marco v3 Professional Quality**
+- [x] **✅ BREAKTHROUGH SUCCESS: v3 Professional Quality**
   - [x] **Professional teaching responses** with proper structure and methodology
   - [x] **Excellent Italian accuracy** with cultural context and etymology
-  - [x] **Zero contamination** - eliminated German word artifacts completely
+  - [x] **Zero contamination** - eliminated artifacts completely
   - [x] **Strong pedagogical structure** - encouragement, examples, grammar analysis
   - [x] **Template consistency** - learned professional teaching format
 - [x] **❗ LIMITATION IDENTIFIED: CEFR Level Conditioning Partially Working**
   - [x] **Root cause**: Training data role-based conditioning works for basic levels only
   - [x] **Current behavior**: A1/A2 levels show appropriate differentiation, B2/C1/C2 responses too similar
-  - [x] **Testing results**: "You are Marco helping absolute beginners" works well for A1/A2
+  - [x] **Testing results**: Basic level prompts work well for A1/A2
   - [x] **Advanced level issue**: B2/C1/C2 prompts don't trigger sufficiently sophisticated responses
   - [x] **Template dominance**: Professional structure limits advanced level differentiation
 
@@ -319,10 +319,10 @@ An AI-powered Italian language teaching platform with personalized homework gene
 - [x] **Core coordination infrastructure** (coordinator.py, agent_registry.py, event_bus.py)
 - [x] **Agent discovery and selection** (agent_discovery.py)
 - [x] **Event-driven handoff system** (agent_events.py)
-- [ ] **Professoressa Rossi**: Grammar expert and corrections specialist
-- [ ] **Nonna Giulia**: Cultural storyteller and regional expressions
-- [ ] **Lorenzo**: Modern Italian, slang, and pop culture
-- [ ] **Dr. Sofia**: Psychological support agent for student social and emotional issues
+- [ ] **Agent 1**: Grammar expert and corrections specialist
+- [ ] **Agent 2**: Cultural storyteller and regional expressions
+- [ ] **Agent 3**: Modern Italian, slang, and pop culture
+- [ ] **Agent 4**: Psychological support agent for student social and emotional issues
 - [x] **Agent coordination framework**: Already built, needs additional agent implementations
 
 ### 6.2 Advanced LoRA Training & Fine-tuning ✅ (Infrastructure Ready!)

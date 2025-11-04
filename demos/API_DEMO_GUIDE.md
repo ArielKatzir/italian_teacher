@@ -66,8 +66,8 @@ ReDoc format (read-only, better for documentation).
 3. Enter JSON:
    ```json
    {
-     "name": "Marco Rossi",
-     "email": "marco@example.com"
+     "name": "Mario Rossi",
+     "email": "mario@example.com"
    }
    ```
 4. Click "Execute"
@@ -77,7 +77,7 @@ ReDoc format (read-only, better for documentation).
 # Create Student 1
 curl -X POST "http://localhost:8000/api/teacher/students" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Marco Rossi", "email": "marco@example.com"}'
+  -d '{"name": "Mario Rossi", "email": "mario@example.com"}'
 
 # Create Student 2
 curl -X POST "http://localhost:8000/api/teacher/students" \
@@ -89,8 +89,8 @@ curl -X POST "http://localhost:8000/api/teacher/students" \
 ```json
 {
   "id": 1,
-  "name": "Marco Rossi",
-  "email": "marco@example.com",
+  "name": "Mario Rossi",
+  "email": "mario@example.com",
   "created_at": "2025-10-01T12:00:00.123456"
 }
 ```
@@ -111,8 +111,8 @@ curl "http://localhost:8000/api/teacher/students"
 [
   {
     "id": 1,
-    "name": "Marco Rossi",
-    "email": "marco@example.com",
+    "name": "Mario Rossi",
+    "email": "mario@example.com",
     "created_at": "2025-10-01T12:00:00.123456"
   },
   {
@@ -223,7 +223,7 @@ Now students can see their homework!
 
 **Command Line:**
 ```bash
-# Get homework for student 1 (Marco)
+# Get homework for student 1 (Mario)
 curl "http://localhost:8000/api/student/1/homework?status=available"
 
 # Get homework for student 2 (Giulia)
@@ -335,7 +335,7 @@ print("=== Italian Teacher API Demo ===\n")
 # 1. Create students
 print("1. Creating students...")
 students = []
-for name, email in [("Marco Rossi", "marco@test.com"), ("Giulia Bianchi", "giulia@test.com")]:
+for name, email in [("Mario Rossi", "mario@test.com"), ("Giulia Bianchi", "giulia@test.com")]:
     response = requests.post(
         f"{BASE_URL}/api/teacher/students",
         json={"name": name, "email": email}
@@ -519,7 +519,7 @@ pip install -r requirements.txt
 
 **How Exercise Generation Works:**
 1. Set `INFERENCE_API_URL` environment variable to your Colab ngrok URL
-2. Uses fine-tuned `models/italian_exercise_generator_lora` model
+2. Uses fine-tuned Italian exercise generation model
 3. Generates high-quality, level-appropriate Italian exercises
 4. ~90 seconds for 5 exercises on GPU (L4, V100, or A100)
 

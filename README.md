@@ -1,13 +1,13 @@
-# Italian Teacher AI - Marco Language Tutor
+# Italian Teacher AI
 
-An AI-powered Italian language teaching system with a REST API for personalized homework generation. The system uses a fine-tuned Marco v3 model running on Google Colab GPU via ngrok tunnel for high-quality exercise generation.
+An AI-powered Italian language teaching system with a REST API for personalized homework generation. The system uses a fine-tuned Italian exercise generation model running on Google Colab GPU via ngrok tunnel for high-quality exercise generation.
 
-## 🎯 Current Status: Phase 3 - Teacher API & Colab GPU Integration ✅
+## 🎯 Current Status: Phase 4 - GRPO Model Training Complete ✅
 
 - ✅ **Teacher/Student API**: FastAPI backend with SQLite database for homework management
-- ✅ **Marco v3 Model**: Successfully fine-tuned Minerva-7B with Italian teaching specialization
+- ✅ **GRPO Fine-tuned Model**: TeacherPet_italian_grpo trained with reinforcement learning
 - ✅ **Colab GPU Integration**: Remote inference via ngrok tunnel (4.4x faster with vLLM)
-- ✅ **Exercise Generation**: 100/100 quality score with 5 complete exercises per request
+- ✅ **Exercise Generation**: High-quality, grammatically accurate exercises
 - 🎯 **Next**: Frontend UI and production deployment
 
 ## 🚀 Quick Start
@@ -61,14 +61,17 @@ Expected output:
 📚 **Detailed guides**:
 - [QUICKSTART.md](QUICKSTART.md) - Complete quick start guide
 - [docs/COLAB_GPU_SETUP.md](docs/COLAB_GPU_SETUP.md) - Comprehensive Colab setup
-- [demos/API_DEMO_GUIDE.md](demos/API_DEMO_GUIDE.md) - API usage examples
+- [src/api/README.md](src/api/README.md) - API documentation and usage
+- [docs/CLI_GUIDE.md](docs/CLI_GUIDE.md) - Command-line interface guide
+- [demos/API_DEMO_GUIDE.md](demos/API_DEMO_GUIDE.md) - API demo examples
 
-## 🧑‍🏫 What is Marco?
+## 🧑‍🏫 Features
 
-**Marco** is an AI Italian teacher that provides:
+The Italian Teacher AI provides:
 - **Personalized Homework**: Generate exercises by CEFR level (A1-C2), grammar focus, and topic
 - **Multiple Exercise Types**: Fill-in-blank, translation, multiple choice
-- **Quality Validation**: 100/100 quality score with comprehensive validation
+- **RL-Optimized Generation**: GRPO training for improved grammatical accuracy and coherence
+- **Quality Validation**: Comprehensive validation with grammar checking
 - **Fast Inference**: 4.4x speed improvement with vLLM optimization
 
 ## 📁 Project Structure
@@ -102,63 +105,43 @@ italian_teacher/
 │   └── exercise_validator.py          # Quality validation
 │
 ├── models/
-│   └── minerva_marco_v3_merged/       # Fine-tuned Marco v3 model
+│   └── TeacherPet_italian_grpo/       # GRPO fine-tuned exercise generation model
 │
 ├── QUICKSTART.md                      # Quick start guide
 ├── test_exercise_quality.py           # Quality test script
 └── run_api.sh                         # API startup script
 ```
 
-## 🎯 API Features
+## 🎯 API & CLI Overview
 
-### Teacher Endpoints
+### Three Ways to Use the System
 
-**Create Student**
+**1. Command-Line Interface (CLI)** - Easiest for quick testing
 ```bash
-POST /teacher/students
-{
-  "name": "Mario Rossi",
-  "cefr_level": "A2"
-}
+# Teacher CLI - Create students and assignments
+python -m src.cli.teacher_cli student create --name "Mario" --email "mario@example.com"
+python -m src.cli.teacher_cli assignment create --student-ids 1 --level A2 --topic "food"
+
+# Student CLI - View homework
+python -m src.cli.student_cli homework list --student-id 1
 ```
 
-**Create Homework Assignment**
+**2. REST API** - For programmatic access
 ```bash
-POST /teacher/homework
-{
-  "student_id": 1,
-  "cefr_level": "A2",
-  "grammar_focus": "present_tense",
-  "topic": "daily routines",
-  "quantity": 5,
-  "exercise_types": ["fill_in_blank", "translation", "multiple_choice"]
-}
+curl -X POST http://localhost:8000/api/teacher/students \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Mario", "email": "mario@example.com"}'
 ```
 
-**List Assignments**
-```bash
-GET /teacher/homework?student_id=1&status=pending
-```
+**3. Interactive API Docs** - For exploration and testing
+- Swagger UI: http://localhost:8000/docs
+- Health check: http://localhost:8000/health
 
-### Student Endpoints
+### Documentation
 
-**Get Homework**
-```bash
-GET /student/{student_id}/homework?status=pending
-```
-
-**Submit Exercise**
-```bash
-POST /student/submit
-{
-  "student_id": 1,
-  "homework_id": 1,
-  "exercise_index": 0,
-  "answer": "vado"
-}
-```
-
-Visit http://localhost:8000/docs for full interactive API documentation.
+- **[CLI Guide](docs/CLI_GUIDE.md)** - Complete command-line interface documentation
+- **[API README](src/api/README.md)** - Full API documentation with endpoints and examples
+- **[API Demo Guide](demos/API_DEMO_GUIDE.md)** - HTTP API usage examples
 
 ## 🏗️ Architecture
 
@@ -184,7 +167,7 @@ Visit http://localhost:8000/docs for full interactive API documentation.
 │   (Port 8001)        │
 │   GPU: NVIDIA L4/T4  │
 │   ├─ vLLM Engine     │
-│   ├─ Marco v3 Model  │
+│   ├─ Fine-tuned Model│
 │   └─ FastAPI Service │
 └──────────────────────┘
 ```
@@ -243,19 +226,20 @@ export LOG_LEVEL=info          # Logging level
 
 ### Model Configuration
 
-The system uses Marco v3, a fine-tuned version of Minerva-7B specialized for Italian teaching:
-- **Base Model**: Minerva-7B
-- **Fine-tuning**: LoRA adapters on Italian teaching dataset
-- **Location**: `models/minerva_marco_v3_merged/`
+The system uses TeacherPet_italian_grpo, a reinforcement learning optimized model:
+- **Training Method**: GRPO (Group Relative Policy Optimization) for improved quality
+- **Base**: Fine-tuned on Italian teaching dataset with reward-based optimization
+- **Location**: `models/TeacherPet_italian_grpo/`
 - **Inference Engine**: vLLM for optimal performance
+- **Key Advantages**: Better grammar accuracy, tense consistency, and reduced hallucination
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
 **"Model not found"**
-- Verify model exists at `models/minerva_marco_v3_merged/`
-- Update `MODEL_PATH` in Colab notebook Cell 3
+- Verify model exists at `models/TeacherPet_italian_grpo/`
+- Update `MODEL_PATH` in Colab notebook to point to the correct model directory
 
 **"Connection timeout"**
 - Check Colab notebook is still running
@@ -292,20 +276,25 @@ The free tier is perfect for development and low-volume usage (<100 requests/day
 
 ## 📋 Roadmap
 
-**Phase 3 (Current)**: ✅ Teacher API & Colab GPU Integration
+**Phase 4 (Current)**: ✅ GRPO Model Training Complete
 - [x] FastAPI Backend with SQLite
 - [x] Teacher/Student endpoints
 - [x] Colab GPU integration via ngrok
-- [x] 100/100 quality exercise generation
+- [x] GRPO reinforcement learning training
+- [x] TeacherPet_italian_grpo model deployed
 - [ ] Frontend UI (Next)
 
-**Phase 4**: Advanced Features
+**Phase 5**: Advanced Features & UI
+- [ ] Frontend UI for teachers and students
+- [ ] Student progress analytics dashboard
+
+**Phase 6**: Platform Features
 - [ ] Batch exercise generation
 - [ ] Exercise caching for performance
 - [ ] More exercise types (audio, images)
 - [ ] Student progress tracking
 
-**Phase 5**: Production Deployment
+**Phase 7**: Production Deployment
 - [ ] Deploy to AWS/GCP with GPU
 - [ ] User authentication
 - [ ] Payment integration
@@ -363,9 +352,10 @@ make lint
 ## 📖 Documentation
 
 - **[QUICKSTART.md](QUICKSTART.md)** - Get started in 3 minutes
-- **[docs/COLAB_GPU_SETUP.md](docs/COLAB_GPU_SETUP.md)** - Complete Colab setup guide (450+ lines)
+- **[src/api/README.md](src/api/README.md)** - Complete API documentation
+- **[docs/COLAB_GPU_SETUP.md](docs/COLAB_GPU_SETUP.md)** - Complete Colab setup guide
 - **[docs/development/COLAB_GPU_INTEGRATION.md](docs/development/COLAB_GPU_INTEGRATION.md)** - Architecture deep dive
-- **[demos/API_DEMO_GUIDE.md](demos/API_DEMO_GUIDE.md)** - API usage examples
+- **[demos/API_DEMO_GUIDE.md](demos/API_DEMO_GUIDE.md)** - API demo examples
 - **[ROADMAP.md](ROADMAP.md)** - Development roadmap
 
 ## 🤝 Contributing
@@ -391,11 +381,11 @@ MIT License - see LICENSE file for details.
 
 ## ✨ Acknowledgments
 
-- **Minerva-7B**: Base model for Italian language understanding
 - **vLLM**: High-performance inference engine
 - **Google Colab**: Free GPU access for development
 - **FastAPI**: Modern web framework for API development
 - **ngrok**: Secure tunneling service
+- **Hugging Face**: Model hosting and training infrastructure
 
 ---
 

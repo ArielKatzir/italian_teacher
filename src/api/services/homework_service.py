@@ -56,7 +56,7 @@ async def generate_homework_for_assignment(assignment_id: int):
             # Generate exercises for each student
             for homework in homework_list:
                 try:
-                    # Generate exercises using MarcoInference
+                    # Generate exercises using GPU inference
                     exercises = await generate_exercises(
                         cefr_level=assignment.cefr_level,
                         grammar_focus=assignment.grammar_focus,

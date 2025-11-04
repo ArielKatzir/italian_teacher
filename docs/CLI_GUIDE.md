@@ -186,6 +186,17 @@ Total assignments: 1
 
 The student CLI allows students to view their assigned homework.
 
+### Important: Homework IDs
+
+**⚠️ Each homework record has a unique homework ID** (not the same as assignment ID).
+
+- When an assignment is created for multiple students, each student gets their own homework record with a unique ID
+- Example: Assignment #1 for students 1 and 2 creates:
+  - Homework ID **1** for Student 1 (Assignment 1)
+  - Homework ID **2** for Student 2 (Assignment 1)
+
+**Always run `homework list` first to see which homework ID belongs to your student.**
+
 ### View Homework List
 
 ```bash
@@ -208,13 +219,29 @@ Homework for Student 1 (Status: available)
 
 Total homework: 1
 
-Use 'homework view --student-id <id> --homework-id <id>' to see exercises
+💡 To view exercises, use:
+   homework view --student-id 1 --homework-id 1
 ```
+
+**Note:** The homework ID in the first column is what you use with the `view` command.
 
 ### View Homework Details
 
 ```bash
+# Use the homework ID from the list command above
 ./student homework view --student-id 1 --homework-id 1
+```
+
+**Common mistake:**
+```bash
+# ❌ WRONG - Using the same homework ID for different students
+./student homework view --student-id 2 --homework-id 1
+# Error: Homework 1 not found for student 2
+
+# ✅ CORRECT - First list to find the right homework ID
+./student homework list --student-id 2
+# Then use the homework ID shown in the list (probably ID 2)
+./student homework view --student-id 2 --homework-id 2
 ```
 
 **Output:**

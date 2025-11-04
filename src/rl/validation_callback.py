@@ -133,11 +133,11 @@ class ValidationCallback(TrainerCallback):
                 # Score all completions for this prompt
                 # FIXED: Call reward function with correct signature
                 try:
-                    # Reward function expects: prompts, completions, trainer_state
+                    # Reward function expects: prompts, completions, requests
                     rewards = self.reward_function(
-                        prompts=[prompt] * len(sample_completions),  # Repeat prompt for each completion
-                        completions=sample_completions,              # Flat list of completions
-                        trainer_state=state                          # Pass trainer state
+                        prompts=[prompt] * len(sample_completions),      # Repeat prompt for each completion
+                        completions=sample_completions,                  # Flat list of completions
+                        requests=[request] * len(sample_completions)     # Pass request for each completion
                     )
                     sample_rewards = rewards if isinstance(rewards, list) else [rewards]
                 except Exception as e:

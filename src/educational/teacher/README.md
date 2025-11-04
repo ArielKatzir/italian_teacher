@@ -130,7 +130,7 @@ Manual assignment configuration with validation and prompt context generation.
 ### 2. HomeworkGenerator (`homework_generator.py`)
 
 **Exercise Generation Engine**
-- Uses the Marco model to create level-appropriate exercises
+- Uses the Italian teaching model to create level-appropriate exercises
 - Supports multiple exercise types
 - Generates topic-specific and grammar-focused content
 - Scales difficulty within CEFR levels

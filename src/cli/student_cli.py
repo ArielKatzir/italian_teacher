@@ -67,7 +67,7 @@ async def _list_homework(student_id: int, status: str):
                 show_header=True,
                 header_style="bold magenta",
             )
-            table.add_column("Homework ID", style="cyan", width=12)
+            table.add_column("Homework ID", style="bold cyan", width=12)
             table.add_column("Assignment ID", style="blue", width=14)
             table.add_column("# Exercises", style="green", width=12)
             table.add_column("Status", style="yellow", width=12)
@@ -92,9 +92,16 @@ async def _list_homework(student_id: int, status: str):
 
             console.print(table)
             rprint(f"\n[bold]Total homework:[/bold] {data['total']}")
-            rprint(
-                "\n[dim]Use 'homework view --student-id <id> --homework-id <id>' to see exercises[/dim]"
-            )
+
+            # Show example command with actual homework IDs
+            if homework_list:
+                first_hw_id = homework_list[0]["id"]
+                rprint(
+                    f"\n[dim]💡 To view exercises, use:[/dim]"
+                )
+                rprint(
+                    f"[dim]   homework view --student-id {student_id} --homework-id {first_hw_id}[/dim]"
+                )
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:

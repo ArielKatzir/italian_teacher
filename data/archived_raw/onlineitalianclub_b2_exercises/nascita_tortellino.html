@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="ANSI">
+
+
+<title>Italian Reading Comprehension Exercise - La nascita del tortellino</title>
+<meta name="description" content="Read this Italian text about torellini and answer the questions to test your understanding.">
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="shortcut icon" type="image/png" href="images/favicon.ico"/>
+<style type="text/css" media="screen">
+
+.container p 	{
+	font-family: 'Droid Sans', sans-serif;
+}
+
+.container h1 	{
+	MARGIN-TOP: 4px; FONT-SIZE: normal; FONT-WEIGHT: bold; FONT-FAMILY: 'Droid Sans', sans-serif;
+}
+
+.container h2 	{
+	MARGIN-TOP: 4px; FONT-SIZE: normal; FONT-WEIGHT: bold; FONT-STYLE: italic; FONT-FAMILY: 'Droid Sans', sans-serif;
+}
+
+.container h3 	{
+	MARGIN-TOP: 4px; FONT-SIZE: normal; FONT-WEIGHT: bold; FONT-FAMILY: 'Droid Sans', sans-serif;
+}
+
+.form {
+	PADDING-RIGHT: 0px; PADDING-LEFT: 0px; MARGIN: 0px; PADDING-TOP: 5px; HEIGHT: 25px
+}
+.exercise {
+	PADDING-RIGHT: 0px; PADDING-LEFT: 0px; PADDING-BOTTOM: 10px; MARGIN: 0px; PADDING-TOP: 20px
+}
+
+.exercise_number {
+	font-family: 'Droid Sans', sans-serif;
+	font-size: 1rem; 
+	PADDING-RIGHT: 0px; PADDING-LEFT: 0px; FONT-WEIGHT: bold; PADDING-BOTTOM: 0px; MARGIN: 0px 10px 0px 0px; PADDING-TOP: 0px
+}
+.exercise_row {
+	font-family: 'Droid Sans', sans-serif;
+	font-size: 1rem; 
+	MARGIN-BOTTOM: 5px
+}
+.exercise_text {
+	font-family: 'Droid Sans', sans-serif;
+	font-size: 1rem; 
+	FONT-WEIGHT: normal; MARGIN: 0px 0px 25px
+}
+.exercise_marking {
+	MARGIN: 0px 7px
+}
+.exercise_buttons {
+	font-family: 'Droid Sans', sans-serif;
+	font-size: 1rem;
+	CLEAR: both; MARGIN: 50px 50px 50px;
+}
+.exercise_dropdown {
+	MARGIN: 0px 5px
+}
+.exercise_gapfillbox {
+	MARGIN: 10px 5px 0px
+}
+.sentencematching .exercise_text {
+	WIDTH: 35%
+}
+.sentencematching SPAN {
+	DISPLAY: block; FLOAT: left
+}
+.sentencematching INPUT {
+	FLOAT: left 
+}
+.upper_alpha {
+	FONT-WEIGHT: bold;  MARGIN-LEFT: 150px; MARGIN-RIGHT: 10px; 
+}
+
+/* Shared
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+.button {
+  border-radius: 100px;
+}
+
+/* Sections
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+.section {
+  padding: 0rem 0 0rem;
+  text-align: center;
+}
+.section-heading,
+.section-description {
+  margin-bottom: 1.2rem;
+}
+
+/* Hero
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+.phones {
+  position: relative;
+}
+.phone {
+  position: relative;
+  max-width: 80%;
+  margin: 3rem auto -12rem;
+}
+.phone + .phone {
+  display: none;
+}
+
+/* Values
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+.values {
+  font-family: 'Droid Sans', sans-serif;
+  background-size: cover;
+  color: #000;
+  padding-bottom: 2rem;
+}
+.value-multiplier {
+  margin-bottom: .5rem;
+  color: #11DFC7;
+}
+.value-heading {
+  margin-bottom: .3rem;
+}
+.value-description {
+  opacity: .8;
+  font-weight: 300;
+}
+
+/* Help
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+.get-help {
+}
+
+/* Categories
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+.categories {
+    background-size: cover;
+  color: #fff;
+}
+.categories .section-description { 
+  margin-bottom: 4rem;
+}
+
+/* Bigger than 550 */
+@media (min-width: 550px) {
+  .section {
+    padding: 12rem 0 11rem;
+  }
+  .hero {
+    padding-bottom: 12rem;
+    text-align: center;
+    height: 165px;
+  }
+  .phone {
+    position: absolute;
+    top: -7rem;
+    right: 3rem;
+    max-height: 362px;
+    z-index: 3;
+  }
+  .phone + .phone {
+    top: -6rem;
+    display: block;
+    max-width: 73.8%;
+    right: 0;
+    z-index: 2;
+    max-height: 338px;
+  }
+  .hero-heading {
+    font-size: 2.4rem;
+  }
+}
+
+/* Bigger than 750 */
+@media (min-width: 750px) {
+  .hero {
+    height: 190px;
+  }
+  .hero-heading {
+    font-size: 2.6rem;
+  }
+  .section {
+    padding: 14rem 0 15rem;
+  }
+  .hero {
+    padding: 16rem 0 14rem;
+  }
+  .section-description {
+    max-width: 60%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .phone {
+    top: -14rem;
+    right: 5rem;
+    max-height: 510px;
+  }
+  .phone + .phone {
+    top: -12rem;
+    max-height: 472px;
+  }
+  .categories {
+    padding: 15rem 0 8rem;
+  }
+}
+
+/* Bigger than 1000 */
+@media (min-width: 1000px) {
+  .section {
+    padding: 0rem 0 0rem;
+  }
+  .hero {
+    padding: 0rem 0;
+  }
+  .hero-heading {
+    font-size: 3.0rem;
+  }
+  .phone {
+    top: -16rem;
+    max-height: 615px;
+  }
+  .phone + .phone {
+    top: -14rem;
+    max-height: 570px;
+  }
+}
+}
+
+</style>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-52311043-3', 'auto');
+  ga('send', 'pageview');
+
+</script>
+
+</head>
+
+<body>
+
+<div class="section hero">
+    <div class="container">
+      <div class="row">
+	<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<!-- dontspeak_responsive -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-8303586803788848"
+     data-ad-slot="4919664213"
+     data-ad-format="auto"></ins>
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+      </div>
+    </div>
+  </div>
+
+<div class="section get-help">
+    <div class="container">
+      <!-- Main content start -->
+
+<a href="http://onlineitalianclub.com"><img src="images/OIC_logo_def_100x315.png"></a>
+<br>
+<br>
+<br>
+<br>
+
+<!-- COPY EXERCISE CODE HERE -->
+
+<FORM id=form1 name=form1>
+      <h1 class=title>La nascita del tortellino</h1>
+
+<p>Hai mai assaggiato i tortellini? Sono uno dei piatti più tipici di Bologna, la città dove si trova Madrelingua, la nostra scuola di Italiano. L’origine precisa di questa ricetta deliziosa è sconosciuta, così nel corso dei secoli sono state inventate delle leggende sulla loro creazione. In questo esercizio puoi leggerne una, ritrovata e adattata da Laura, una nostra tirocinante. Siccome contengono espressioni ed elementi di vocabolario piuttosto difficili, raccomandiamo questa attività ad apprendenti di livello avanzato (C1-C2)</p>
+
+
+      <h2>Leggi il testo, poi rispondi alle domande</h2>
+<p><img src="images/tortellino.jpg" align="left" Title="'Tortellini' by Scott Feldstein - www.flickr.com">Ci sono un’infinità di leggende esistenti riguardo alla nascita del tortellino, tutte avvolte dall’incanto e dal mistero: una di queste narra che una sera gli dei Venere, Bacco e Marte si fermarono in una locanda di Castelfranco Emilia, poco lontano da Bologna. D’un tratto l’oste, vedendo fortuitamente l’ombelico della bella ospite, ne rimase talmente colpito che si precipitò in cucina in quattro e quattr’otto: mosso dall’ispirazione, creò con pasta sfoglia e un ripieno di carne questa prelibatezza, foggiata a somiglianza dell’ombelico della dea, servendolo a tavola e stupendo grandiosamente i suoi ospiti.</p> 
+<p>Le origini del piatto si perdono indietro nei tempi: una sua attestazione ufficiale risale solo al 1570, anno in cui un cuoco bolognese fece stampare un migliaio di ricette tra le quali compariva anche quella dei tortellini.</p>
+<p>Nella biblioteca dell’Archiginnasio di Bologna è attualmente conservato un manoscritto di cucina della fine del 1300 in cui si parla già di tortellini!</p>
+&nbsp;
+
+<center>
+
+      <TABLE cellSpacing=0 cellPadding=0 width=510 border=0>
+        
+<TBODY>
+
+<TBODY>
+	<TR>
+          
+<TD vAlign=top width=25><IMG id=one height=20 alt=scoring 
+            src="bits/transparent.gif" width=20 name=one></TD>
+          <TD vAlign=top width=12><STRONG>1</STRONG></TD>
+          <TD> Secondo questa leggenda, i tortellini sono stati creati:</TD>
+          
+<TD vAlign=top width=24><IMG id=two alt=scoring 
+            src="bits/transparent.gif" name=two></TD>
+          <TD vAlign=top width=14><STRONG>2</STRONG></TD>
+          <TD vAlign=top>La forma del tortellino assomiglia:</TD></TR>
+        <TR>
+          <TD vAlign=top width=25>&nbsp;</TD>
+          <TD vAlign=top width=12>&nbsp;</TD>
+          <TD><INPUT type=radio name=q1> a) In un castello<BR><INPUT type=radio 
+            name=q1> b) In una locanda<BR><INPUT type=radio name=q1> c) 
+         Da una signora di nome Emilia<BR><BR></TD>
+          <TD vAlign=top width=24>&nbsp;</TD>
+          <TD vAlign=top width=14>&nbsp;</TD>
+          <TD><INPUT type=radio name=q2> a) All'orecchio di Venere <BR><INPUT type=radio name=q2> 
+            b) All'ombelico della signora Emilia <BR><INPUT type=radio name=q2> c) All'ombelico di Venere <BR></TD></TR>
+        <TR>
+          <TD vAlign=top width=25>&nbsp;</TD>
+          <TD vAlign=top width=12>&nbsp;</TD>
+          <TD>&nbsp;</TD>
+          <TD vAlign=top width=24>&nbsp;</TD>
+          <TD vAlign=top width=14>&nbsp;</TD>
+          <TD>&nbsp;</TD></TR>
+        
+<TR vAlign=top>
+          <TD width=25><IMG id=three alt=scoring 
+            src="bits/transparent.gif" name=three></TD>
+          <TD width=12><STRONG>3</STRONG></TD>
+          <TD>L’oste della locanda:</TD>
+          
+<TD width=24><IMG id=four alt=scoring 
+            src="bits/transparent.gif" name=four></TD>
+          <TD width=14><STRONG>4</STRONG></TD>
+          <TD>Venere, Bacco e Marte:</TD></TR>
+        <TR>
+          <TD vAlign=top width=25>&nbsp;</TD>
+          <TD vAlign=top width=12>&nbsp;</TD>
+          <TD><INPUT type=radio name=q3> a) non sapeva cosa cucinare per le tre divinità. <BR><INPUT type=radio 
+            name=q3> b) preparò velocemente questa ricetta per i suoi ospiti. <BR><INPUT type=radio name=q3> c) trascorse quarantotto giorni in cucina per preparare i tortellini.<BR></TD>
+          <TD vAlign=top width=24>&nbsp;</TD>
+          <TD vAlign=top width=14>&nbsp;</TD>
+          <TD><INPUT type=radio name=q4> a) non mangiarono i tortellini. <BR><INPUT type=radio name=q4> 
+            b) erano troppo stupidi per apprezzare la ricetta.<BR><INPUT type=radio name=q4> c)  furono molto colpiti dai tortellini.<BR></TD></TR>
+        <TR>
+          <TD vAlign=top width=25>&nbsp;</TD>
+          <TD vAlign=top width=12>&nbsp;</TD>
+          <TD>&nbsp;</TD>
+          <TD vAlign=top width=24>&nbsp;</TD>
+          <TD vAlign=top width=14>&nbsp;</TD>
+          <TD>&nbsp;</TD></TR>
+        
+<TR vAlign=top>
+          <TD width=25 height=48><IMG id=five alt=scoring 
+            src="bits/transparent.gif" name=five></TD>
+          <TD width=12 height=48><STRONG>5</STRONG></TD>
+          <TD height=48>Nel 1570:</TD>
+          
+<TD width=24 height=48><IMG id=six alt=scoring 
+            src="bits/transparent.gif" name=six></TD>
+          <TD width=14 height=48><STRONG>6</STRONG></TD>
+          <TD height=48>Gli ingedienti del tortellino sono:</TD></TR>
+        <TR>
+          <TD vAlign=top width=25>&nbsp;</TD>
+          <TD vAlign=top width=12>&nbsp;</TD>
+          <TD><INPUT type=radio name=q5> a) i tortellini sono stati dipinti per la prima volta.<BR><INPUT type=radio name=q5> 
+            b) un cuoco trovò la ricetta in una biblioteca.  <BR><INPUT type=radio name=q5> c)  la ricetta dei tortellini venne stampata per la prima volta.<BR></TD>
+          <TD vAlign=top width=24>&nbsp;</TD>
+          <TD vAlign=top width=14></TD>
+          <TD><INPUT type=radio name=q6> a) Pasta e ragù <BR><INPUT type=radio 
+            name=q6> b) Pasta sfoglia e ripieno di carne <BR><INPUT type=radio name=q6> c) 
+        Pasta sfoglia e crema<BR></TD></TR></TBODY></TABLE>
+
+</center>
+
+      <P><INPUT onclick=check2() type=button value=Check name=button> <INPUT onclick=reveal() type=button value="See answers" name=button2> <INPUT onclick=again() type=reset value=Reimposta name=reset> </P></FORM>
+
+      <SCRIPT language=JavaScript type=text/javascript>
+
+
+var one= 0;
+var two= 0
+var three= 0;
+var four= 0;
+var five= 0;
+var six= 0;
+
+var score= 0;
+var cheat = 0;
+
+function check1() {
+
+
+
+
+
+if (document.form1.q1[1].checked) {
+one= 1;
+document.images.one.src="bits/tick.gif"
+} else {
+document.images.one.src="bits/cross.gif"
+}
+if (document.form1.q2[2].checked) {
+two= 1;
+document.images.two.src="multiplechoice/tick.gif"
+} else {
+document.images.two.src="bits/cross.gif"
+}
+if (document.form1.q3[1].checked) {
+three= 1;
+document.images.three.src="bits/tick.gif"
+} else {
+document.images.three.src="bits/cross.gif"
+}
+if (document.form1.q4[2].checked) {
+four= 1;
+document.images.four.src="bits/tick.gif"
+} else {
+document.images.four.src="bits/cross.gif"
+}
+if (document.form1.q5[2].checked) {
+five= 1;
+document.images.five.src="bits/tick.gif"
+} else {
+document.images.five.src="bits/cross.gif"
+}
+if (document.form1.q6[1].checked) {
+six= 1;
+document.images.six.src="bits/tick.gif"
+} else {
+document.images.six.src="bits/cross.gif"
+}
+
+
+}
+
+function check2() {
+
+if (cheat >=1) {
+alert("Press reset and then try again")
+} else {
+
+check1();
+score=one+two+three+four+five+six;
+alert("Your score is " +score+ " / 6")
+}
+}
+
+//function again() {
+//cheat = 0;
+//}
+function again() {
+document.images.one.src="bits/transparent.gif";
+document.images.two.src="bits/transparent.gif";
+document.images.three.src="bits/transparent.gif";
+document.images.four.src="bits/transparent.gif";
+document.images.five.src="bits/transparent.gif";
+document.images.six.src="bits/transparent.gif";
+
+
+document.form1.q1[1].checked = false;
+document.form1.q2[2].checked = false;
+document.form1.q3[1].checked = false;
+document.form1.q4[2].checked = false;
+document.form1.q5[2].checked = false;
+document.form1.q6[1].checked = false;
+cheat = 0;
+one = 0;
+two = 0;
+three = 0;
+four = 0;
+five = 0;
+six = 0;
+
+//score = 0;
+
+}
+
+function reveal() {
+cheat = 1;
+document.form1.q1[1].checked = true;
+document.form1.q2[2].checked = true;
+document.form1.q3[1].checked = true;
+document.form1.q4[2].checked = true;
+document.form1.q5[2].checked = true;
+document.form1.q6[1].checked = true;
+
+
+document.images.one.src="bits/transparent.gif"
+document.images.two.src="bits/transparent.gif"
+document.images.three.src="bits/transparent.gif"
+document.images.four.src="bits/transparent.gif"
+document.images.five.src="bits/transparent.gif"
+document.images.six.src="bits/transparent.gif"
+
+}
+
+
+
+</SCRIPT>
+
+
+
+
+<!-- END OF EXERCISE CODE -->	
+
+
+
+		
+<p>
+<strong><a href="http://onlineitalianclub.com/free-italian-exercises-and-resources/">Back to list of free Italian exercises</a></strong>
+<br>
+<br>
+</p>
+
+
+
+<!-- Main content end -->	
+    </div>
+  </div>
+
+<div class="section hero">
+    <div class="container">
+      <div class="row">
+	<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<!-- dontspeak_responsive -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-8303586803788848"
+     data-ad-slot="4919664213"
+     data-ad-format="auto"></ins>
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+      </div>
+    </div>
+  </div>
+
+<div class="section values">
+    <div class="container">
+      <div class="row">
+
+	<p>ALL RIGHTS RESERVED · © COPYRIGHT 2016 · IMPARAREONLINE LTD.</p>
+        <p>Registered in England, no. 8569282 Tregarth, The Gounce, Perranporth, Cornwall TR6 0JW</p>
+        <p>info@imparareonline.co.uk </p>
+
+      </div>
+    </div>
+  </div>
+  
+</body>
+</html>

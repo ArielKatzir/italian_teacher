@@ -335,15 +335,25 @@ class LinguisticScorer(BaseScorer):
         """
         Checks for sentence fragments, like a relative clause without a main clause.
         e.g., "Il telo che è stato usato."
+
+        IMPORTANT: Ignores fill-in-blank hint format like "(andare)" or exercise markers.
         """
         errors = []
+        text_lower = doc.text.lower()
+
+        # Skip fragment check if this looks like a fill-in-blank with hint
+        # Pattern: (verb) indicates this is an exercise with a hint
+        if '(' in text_lower and ')' in text_lower:
+            # Likely a hint format, skip fragment checking
+            return errors
+
         for sent in doc.sents:
             # Heuristic: If the root of the sentence is not the main verb (but part of a sub-clause),
             # it's likely a fragment.
             root = sent.root
             # A common fragment starts with a relative pronoun ('che', 'cui')
             has_subject = any(tok.dep_ in ("nsubj", "nsubj:pass") for tok in sent)
-            
+
             if not has_subject and len(sent) > 2:
                 # If there's no nominal subject, it's likely a fragment unless it's a command.
                 if root.pos_ != "VERB" or "Imp" not in root.morph.get("Mood", []):
@@ -597,37 +607,37 @@ class LinguisticScorer(BaseScorer):
 
         Filters out English text (like "Translate:" prompts) to focus on Italian only.
         For fill-in-the-blank, inserts the correct answer into the question.
+        For translation exercises, ONLY uses the Italian answer (correct_answer).
         """
         import re
 
-        text_to_analyze = ""
-        question_part = ""
-        answer_part = ""
+        exercise_type = exercise.get("type", "")
 
-        if "question" in exercise:
-            question = exercise["question"]
-            # Remove common English prompts
-            question_part = re.sub(
-                r"^(Translate|Fill in the blank|Choose the correct answer):\s*",
-                "",
-                question,
-                flags=re.IGNORECASE,
-            ).strip()
+        # For translation exercises, ONLY analyze the Italian answer (correct_answer)
+        # The question is in English, so we must not analyze it
+        if exercise_type == "translation":
+            if "correct_answer" in exercise:
+                return exercise["correct_answer"].strip()
+            return ""
 
-        if exercise.get("type") == "fill_in_blank" and "correct_answer" in exercise:
-            # For fill-in-the-blank, insert the correct answer into the blank
-            # We assume only one blank for simplicity, replace first occurrence
-            text_to_analyze = question_part.replace("___", exercise["correct_answer"], 1)
-        elif question_part:
-            text_to_analyze = question_part
+        # For fill-in-the-blank, insert the answer into the question
+        if exercise_type == "fill_in_blank":
+            question = exercise.get("question", "")
+            answer = exercise.get("correct_answer", "")
+            if "___" in question and answer:
+                return question.replace("___", answer, 1).strip()
+            # Fallback if no blank found
+            return f"{question} {answer}".strip()
 
-        # Also consider the 'answer' field, especially for translation exercises
-        if "answer" in exercise:
-            answer_part = exercise["answer"].strip()
-            if text_to_analyze:
-                text_to_analyze += " " + answer_part
-            else:
-                text_to_analyze = answer_part
+        # For multiple_choice and other types, analyze the question
+        # Remove common English prompts first
+        question = exercise.get("question", "")
+        question_clean = re.sub(
+            r"^(Translate|Fill in the blank|Choose the correct answer):\s*",
+            "",
+            question,
+            flags=re.IGNORECASE,
+        ).strip()
 
         # Heuristic to check if the extracted text is likely Italian
         italian_indicators = [
@@ -635,9 +645,10 @@ class LinguisticScorer(BaseScorer):
             "ho", "hai", "ha", "abbiamo", "avete", "hanno", # common verb forms
             "io", "tu", "lui", "lei", "noi", "voi", "loro" # common pronouns
         ]
-        if text_to_analyze and any(indicator in text_to_analyze.lower() for indicator in italian_indicators):
-            return text_to_analyze
-        
+
+        if question_clean and any(indicator in question_clean.lower().split() for indicator in italian_indicators):
+            return question_clean
+
         return "" # Return empty string if no Italian text detected
 
 

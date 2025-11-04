@@ -73,7 +73,7 @@ MIN_CEFR_FOR_GRAMMAR = {
     # B2: Advanced moods and structures
     "subjunctive": "B2",
     "trapassato_prossimo": "B2",  # Pluperfect
-    "forma_passiva": "B2",  # Passive voice
+    "forma_passiva": "B1",  # Passive voice (simple forms at B1, complex at B2)
     # C1/C2: Advanced/Literary tenses
     "passato_remoto": "C1",  # Simple past (literary)
 }

@@ -159,3 +159,5 @@ configs/secrets.yaml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+logs.txt

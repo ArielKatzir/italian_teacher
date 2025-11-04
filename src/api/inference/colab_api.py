@@ -2,8 +2,8 @@
 FastAPI inference service for Italian Exercise Generator model on Colab GPU.
 
 This module provides a complete inference API that can be deployed on Google Colab
-with GPU acceleration using vLLM. Uses the fine-tuned italian_exercise_generator_lora
-model for generating high-quality Italian language exercises.
+with GPU acceleration using vLLM. Uses TeacherPet_italian_grpo, a GRPO-trained model
+for generating high-quality Italian language exercises with improved grammar accuracy.
 """
 
 import json
@@ -45,8 +45,8 @@ def create_inference_app(llm, port: int = 8001):
     """
     app = FastAPI(
         title="Italian Exercise Generator API",
-        description="Italian Teacher homework generation service using italian_exercise_generator_lora",
-        version="2.0.0",
+        description="Italian Teacher homework generation service using TeacherPet_italian_grpo (GRPO RL-trained)",
+        version="3.0.0",
     )
 
     @app.get("/")
@@ -57,10 +57,11 @@ def create_inference_app(llm, port: int = 8001):
         return {
             "status": "healthy",
             "service": "Italian Exercise Generator API",
-            "model": "italian_exercise_generator_lora",
+            "model": "TeacherPet_italian_grpo",
+            "training": "GRPO (Group Relative Policy Optimization)",
             "gpu": torch.cuda.get_device_name() if torch.cuda.is_available() else "CPU",
             "port": port,
-            "version": "2.0.0",
+            "version": "3.0.0",
         }
 
     @app.get("/health")
@@ -81,9 +82,11 @@ def create_inference_app(llm, port: int = 8001):
     @app.post("/generate", response_model=ExerciseResponse)
     async def generate_exercises(request: ExerciseRequest):
         """
-        Generate Italian language exercises using italian_exercise_generator_lora model.
+        Generate Italian language exercises using TeacherPet_italian_grpo model.
 
-        Uses multiple parsing strategies to reliably extract exercises from model output.
+        This GRPO-trained model provides improved grammar accuracy, tense consistency,
+        and reduced hallucination. Uses multiple parsing strategies to reliably extract
+        exercises from model output.
         """
         try:
             import time

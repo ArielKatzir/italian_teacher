@@ -2,14 +2,17 @@
 Modular Reward Function for Italian Exercise Generation.
 
 
-Scores exercises on 6 dimensions (0-100 points total):
+Scores exercises on 8 dimensions (normalized to 100 points):
 1. JSON Validity (15 points) - Structure and format
-2. Linguistic Quality (35 points) - Comprehensive Italian grammar validation
-3. CEFR Level Alignment (20 points) - Appropriate difficulty for target level
-4. Fluency (10 points) - Natural language flow and construction
-5. Grammar Correctness (10 points) - Matches requested grammar_focus
-6. Topic Adherence (10 points) - Relevant to requested topic
+2. Exercise Quality (20 points) - Context validation, redundancy checks
+3. Linguistic Quality (15 points) - Comprehensive Italian grammar validation
+4. CEFR Level Alignment (30 points) - Appropriate difficulty for target level [INCREASED WEIGHT]
+5. Fluency (10 points) - Natural language flow and construction
+6. Grammar Correctness (10 points) - Matches requested grammar_focus
+7. Coherence (10 points) - Logical sense and naturalness
+8. Topic Adherence (10 points) - Relevant to requested topic
 
+Total raw score: 120 points → normalized to 100
 This modular version uses individual scorer classes for each component.
 """
 
@@ -60,8 +63,8 @@ class RewardBreakdown:
 
     json_validity: float  # 0-15
     exercise_quality: float  # 0-20
-    linguistic_quality: float  # 0-15 (Re-weighted)
-    cefr_alignment: float  # 0-20
+    linguistic_quality: float  # 0-15
+    cefr_alignment: float  # 0-30 (INCREASED WEIGHT)
     fluency: float  # 0-10
     grammar_correctness: float  # 0-10
     coherence: float  # 0-10
@@ -75,7 +78,7 @@ class RewardBreakdown:
             f"  JSON: {self.json_validity}/15\n"
             f"  Quality: {self.exercise_quality}/20\n"
             f"  Linguistic: {self.linguistic_quality}/15\n"
-            f"  CEFR: {self.cefr_alignment}/20\n"
+            f"  CEFR: {self.cefr_alignment}/30\n"
             f"  Fluency: {self.fluency}/10\n" # This will be 0 if disabled
             f"  Grammar: {self.grammar_correctness}/10\n"
             f"  Coherence: {self.coherence}/10\n"
@@ -88,15 +91,15 @@ class ExerciseRewardFunction:
     """
     Modular reward function for scoring Italian exercise quality.
 
-    Uses individual scorer components (130 points total → normalized to 100):
+    Uses individual scorer components (120 points total → normalized to 100):
     - JSONScorer: Structure validation with STRICT type penalties (15 pts)
     - ExerciseQualityScorer: Context validation, redundancy checks (20 pts)
     - LinguisticScorer: Italian grammar rules (15 pts)
-    - CEFRScorer: Level-appropriate complexity (20 pts)
+    - CEFRScorer: Level-appropriate complexity (30 pts) [INCREASED WEIGHT]
     - FluencyScorer: Natural language flow (10 pts)
     - GrammarScorer: Grammar focus validation using LLM (10 pts)
-    - TopicScorer: Semantic similarity to topic (10 pts)
     - CoherenceScorer: Logical sense and coherence (10 pts)
+    - TopicScorer: Semantic similarity to topic (10 pts)
     """
 
     def __init__(

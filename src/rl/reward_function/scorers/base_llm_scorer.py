@@ -31,8 +31,8 @@ SCORER_MODEL_CONFIG = {
     "grammar_correctness": {
         # Grammar: Start with Groq for speed
         "models": [
-            "llama-3.1-8b-instant",      # Groq - fast and free
-            "deepseek-chat",             # DeepSeek - very cheap
+            "gemini-2.0-flash",
+            "llama-3.3-70b-versatile",  
             "gpt-4.1-nano",              # OpenAI - reliable
             "llama-3.3-70b-versatile",   # Groq 70B - better quality
             "claude-3-haiku-20240307",   # Anthropic - backup
@@ -165,8 +165,9 @@ class BaseLLMScorer(BaseScorer):
             await semaphore.acquire()
 
         # Add jitter to prevent all concurrent requests from hitting API simultaneously
-        # Use 0.5-2.0s jitter to stay within RPM (requests per minute) limits
-        jitter = random.uniform(0.5, 2.0)
+        # Use 1.5-4.0s jitter to stay within RPM (requests per minute) limits
+        # Increased from 0.5-2.0s to handle high gradient_accumulation_steps
+        jitter = random.uniform(1.5, 4.0)
         await asyncio.sleep(jitter)
 
         final_results = [(5.0, ["Scoring failed."])] * len(exercises)
@@ -194,20 +195,21 @@ class BaseLLMScorer(BaseScorer):
                 "required": ["scores"],
             }
 
-            # Determine preferred provider based on scorer config
-            # The first model in the list is the preferred one
-            preferred_model = self.get_allowed_models()[0]
-            preferred_provider = self.llm_handler.get_provider_for_model(preferred_model)
+            # Get this scorer's allowed models for fallback chain
+            allowed_models = self.get_allowed_models()
+            preferred_model = allowed_models[0] if allowed_models else None
+            preferred_provider = self.llm_handler.get_provider_for_model(preferred_model) if preferred_model else None
 
 
-            # Delegate the call to the handler
+            # Delegate the call to the handler with scorer-specific model list
             # Use 40s timeout to allow time for multiple fallback providers under high concurrency
             result_text, model_used = await self.llm_handler.call_llm(
                 prompt=user_prompt,
                 system_prompt=system_prompt,
                 json_schema=json_output_schema,
                 timeout=40.0, # Generous timeout for trying multiple providers
-                preferred_provider=preferred_provider
+                preferred_provider=preferred_provider,
+                allowed_models=allowed_models  # Pass scorer's specific fallback chain
             )
 
             parsed_json = self._parse_llm_json(result_text)

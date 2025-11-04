@@ -39,39 +39,64 @@ class CEFRScorer(BaseLLMScorer):
         )
 
         return f"""
-You are a strict and meticulous Italian language professor evaluating a batch of exercises for CEFR level appropriateness. Your primary job is to ensure the exercises are genuinely challenging for the target level and not just superficially correct.
+You are an EXTREMELY STRICT Italian language professor evaluating CEFR level appropriateness. Your job is to HARSHLY penalize exercises that don't match the target level. Be UNFORGIVING.
 
-**REQUEST DETAILS:**
+**REQUEST:**
 - **Target CEFR Level:** {level}
 - **Grammar Focus:** {grammar_focus}
 - **Exercise Types:** {exercise_types}
 
-Here is the batch of exercises:
+**Exercises:**
 {exercises_json_string}
 
-For each exercise, evaluate its appropriateness for a **{level}** student.
+**CRITICAL: PRIMARY VALIDATION RULES**
+Check if the exercise is fundamentally broken FIRST:
+1. **Answer Already Visible:** Is the correct_answer already present in the question? → Score: 0
+2. **Nonsensical Exercise:** Is the exercise logically impossible or incoherent? → Score: 0
+3. **Wrong Grammar Focus:** Does it test completely different grammar than requested? → Score: 0
+4. **Non-standard Italian:** Does it use incorrect or non-existent Italian words? → Score: 0
 
-**PRIMARY RULE: First, check if the exercise is fundamentally broken.** If the answer is already present in the question, or the exercise is nonsensical, it is **unacceptable** and must receive a score between 0 and 4, regardless of any other factor.
+**EVALUATION CRITERIA (for non-broken exercises):**
 
-If the exercise is not broken, then evaluate it based on these criteria:
-1.  **Grammatical & Task Complexity:** Is the grammar point and the task itself (e.g., filling a blank) genuinely challenging for a {level} student? Simple A1/A2 tasks are not acceptable for B1+ levels.
-2.  **Vocabulary & Sentence Structure:** Is the vocabulary and sentence structure appropriate for the {level} level?
+1. **Grammar Complexity for {level}:**
+   - A1: Basic present tense, simple sentences, common verbs
+   - A2: Past tenses (passato prossimo), simple future, basic pronouns
+   - B1: Complex tenses (imperfetto, trapassato), conditionals, subjunctive introduction
+   - B2: Full subjunctive mastery, passive voice, complex subordinate clauses
+   - C1/C2: Nuanced tense usage, advanced rhetoric, idiomatic mastery
 
-**STRICT SCORING SCALE (0-20) - BE HARSH:**
-- **18-20:** Perfect. A challenging, well-formed exercise perfectly aligned with the {level} level.
-- **10-17:** Acceptable but flawed. Might be slightly too simple or use slightly simple vocabulary.
-- **5-9:** Poor. The exercise is significantly too simple for the target level (e.g., an A2-level task for a B2 request).
-- **0-4: Unacceptable.** Assign a score in this range if ANY of the following are true:
-    - The exercise is **fundamentally broken** (as per the PRIMARY RULE).
-    - The exercise tests a grammar point **two or more levels below** the target.
+2. **Vocabulary Sophistication:**
+   - Is the vocabulary genuinely challenging for {level}?
+   - Common words (casa, mangiare, andare) are A1/A2, not B1+
 
-Respond ONLY with a single JSON object with a "scores" key, containing a list of objects with "id", "score", and "issue".
+3. **Task Complexity:**
+   - Simple blanks with obvious answers are A1/A2
+   - Challenging distractors and nuanced choices are B1+
 
+**ULTRA-HARSH SCORING SCALE (0-30):**
+
+- **27-30:** Perfect. Exceptionally challenging and perfectly calibrated for {level}. Rare.
+- **20-26:** Excellent. Appropriately challenging for {level} with good complexity.
+- **15-19:** Good. Acceptable for {level} but could be more challenging.
+- **10-14:** Mediocre. Slightly below {level} complexity (e.g., uses some B1 grammar for B2 request).
+- **5-9:** Poor. Significantly too simple (e.g., A2 task for B1+ level).
+- **0-4: Unacceptable/Broken.** Use this range if:
+    - Exercise is fundamentally broken (PRIMARY RULES violated)
+    - Tests grammar **2+ levels below** target (e.g., A1 grammar for B2)
+    - Uses vocabulary far below the target level
+
+**IMPORTANT GUIDELINES:**
+- Be RUTHLESS with level mismatches: even 1 level too simple = max 14 points
+- Basic vocabulary at high levels (B2+) = automatic penalty
+- Simple fill-in-blanks for B1+ students should score ≤10 unless exceptionally clever
+- Default to LOWER scores. When in doubt, penalize.
+
+Respond with JSON: {{"scores": [{{"id": 0, "score": X, "issue": "specific issue"}}]}}
 """
 
     @property
     def max_score(self) -> float:
-        return 20.0
+        return 30.0
 
     @property
     def name(self) -> str:

@@ -36,19 +36,57 @@ class CoherenceScorer(BaseLLMScorer):
         )
 
         return f"""
-You are evaluating a batch of Italian exercises for coherence.
+You are a STRICT evaluator of Italian exercise coherence and naturalness. Be CRITICAL and thorough.
 
-Here is the batch of exercises:
-For each exercise, I have provided the 'completed_exercise' text. For fill-in-the-blank, this is the question with the answer inserted.
+Exercises to evaluate (with answers inserted for fill-in-blanks):
 {exercises_json_string}
 
-For each exercise, rate the coherence of the 'completed_exercise' on a scale of 0-10.
-- 10: Perfectly logical and makes sense.
-- 5: Makes sense, but is awkward or weak.
-- 0: Nonsense, contradictory, or grammatically broken to the point of being incomprehensible.
+**EVALUATION CRITERIA - Assess each 'completed_exercise' for:**
 
-Respond with a single JSON object with a "scores" key, containing a list of objects with "id", "score", and "issue".
+1. **Grammatical Completeness:**
+   - Is it a complete, well-formed Italian sentence?
+   - Are there missing words, articles, or prepositions?
+   - Does subject-verb-object structure make sense?
 
+2. **Semantic Coherence:**
+   - Does the sentence have a clear, logical meaning?
+   - Are the words used correctly in context?
+   - Does it express a plausible real-world scenario or concept?
+
+3. **Natural Italian Phrasing:**
+   - Does it sound like something a native speaker would say?
+   - Are word order and collocations correct?
+   - Are there awkward constructions or unnatural translations?
+
+4. **Internal Consistency:**
+   - Do all parts of the sentence fit together?
+   - Are there contradictions or nonsensical combinations?
+   - Do adjectives/articles match their nouns appropriately?
+
+**SPECIFIC RED FLAGS (auto-penalize):**
+- Incomplete sentences missing verbs or subjects
+- Word order that's clearly wrong (e.g., "velocemente molto corre")
+- Semantic nonsense (e.g., "Il tavolo ha mangiato la casa")
+- Awkward literal translations from English that don't work in Italian
+- Incorrect use of idiomatic expressions
+- Preposition misuse that changes meaning drastically
+
+**STRICT SCORING SCALE (0-10):**
+
+- **10:** Perfect. Grammatically complete, semantically coherent, natural-sounding Italian. Could appear in a native text.
+- **8-9:** Excellent. Minor stylistic awkwardness but fully coherent and correct.
+- **6-7:** Good. Understandable and mostly correct, but somewhat awkward or unnatural phrasing.
+- **4-5:** Mediocre. Makes sense but has noticeable issues (missing words, awkward structure, unnatural phrasing).
+- **2-3:** Poor. Barely comprehensible, major structural or semantic problems.
+- **0-1: Unacceptable.** Nonsensical, grammatically broken, contradictory, or incomprehensible.
+
+**IMPORTANT:**
+- Be HARSH on incomplete sentences: missing articles/prepositions = max 5 points
+- Be CRITICAL of awkward phrasing: unnatural Italian = max 7 points
+- Penalize semantic nonsense heavily: contradiction/impossibility = 0-2 points
+- Default to LOWER scores when something feels "off"
+
+Respond ONLY with valid JSON: {{"scores": [{{"id": 0, "score": X, "issue": "specific description of problem"}}]}}
 """
 
     @property

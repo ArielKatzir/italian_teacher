@@ -331,7 +331,8 @@ class LLMAPIHandler:
         system_prompt: str,
         json_schema: Dict[str, Any],
         timeout: float = 30.0,
-        preferred_provider: Optional[str] = None
+        preferred_provider: Optional[str] = None,
+        allowed_models: Optional[List[str]] = None
     ) -> Tuple[str, str]:
         """
         Call LLM with automatic provider selection and fallback.
@@ -342,6 +343,7 @@ class LLMAPIHandler:
             json_schema: Expected JSON output schema
             timeout: Request timeout in seconds
             preferred_provider: Preferred provider to try first (e.g., "gemini")
+            allowed_models: List of model names this scorer wants to use (e.g., ["gemini-2.0-flash", "gpt-4.1-nano"])
 
         Returns:
             Tuple of (result_text, model_used)
@@ -349,8 +351,12 @@ class LLMAPIHandler:
         Raises:
             Exception if all providers fail
         """
-        # Organize models by preferred provider first, but exclude models in cooldown
+        # Start with all available models
         models_to_try = self.available_models.copy()
+
+        # If scorer provided a specific list of allowed models, filter to only those
+        if allowed_models:
+            models_to_try = [m for m in models_to_try if m[1] in allowed_models]
 
         # Filter out models that are in cooldown
         models_to_try = [m for m in models_to_try if self.is_model_available(m[0], m[1])]
@@ -368,9 +374,22 @@ class LLMAPIHandler:
             await asyncio.sleep(30)
             # After wait, allow all models to retry (except daily limit ones)
             models_to_try = self.available_models.copy()
+            # Re-apply allowed_models filter after wait
+            if allowed_models:
+                models_to_try = [m for m in models_to_try if m[1] in allowed_models]
 
-        # Prioritize preferred provider's models, but still respect cooldowns
-        if preferred_provider:
+        # If scorer provided allowed_models, sort by that order (scorer's fallback chain)
+        # Otherwise, prioritize by preferred provider
+        if allowed_models:
+            # Sort models_to_try by the order they appear in allowed_models
+            def model_priority(model_tuple):
+                model_name = model_tuple[1]
+                try:
+                    return allowed_models.index(model_name)
+                except ValueError:
+                    return 999  # Models not in allowed_models go last
+            models_to_try = sorted(models_to_try, key=model_priority)
+        elif preferred_provider:
             preferred_models = [m for m in models_to_try if m[0] == preferred_provider]
             other_models = [m for m in models_to_try if m[0] != preferred_provider]
             models_to_try = preferred_models + other_models

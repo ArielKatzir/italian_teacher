@@ -1,7 +1,7 @@
 """
 Homework Generator
 
-Uses the fine-tuned Marco model to generate structured exercises based on
+Uses the fine-tuned Italian teaching model to generate structured exercises based on
 teacher specifications and assignment parameters.
 """
 
@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from ...fine_tuning.inference import MarcoInference
+from ...fine_tuning.inference import ItalianTeacherInference
 from .command_processor import CEFRLevel, ExerciseType, GrammarFocus, HomeworkAssignment
 
 logger = logging.getLogger(__name__)
@@ -41,13 +41,13 @@ class HomeworkSet:
         if self.metadata is None:
             self.metadata = {
                 "generated_at": None,
-                "model_version": "minerva_marco_v3_merged",
+                "model_version": "italian_exercise_generator",
                 "total_exercises": len(self.exercises),
             }
 
 
 class HomeworkGenerator:
-    """Generates homework exercises using the fine-tuned Marco model."""
+    """Generates homework exercises using the fine-tuned Italian teaching model."""
 
     def __init__(self, model_path: str = "models/minerva_marco_v3_merged", device: str = "auto"):
         """

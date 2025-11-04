@@ -1,0 +1,14 @@
+{
+  "total_conversations": 5446,
+  "by_level": {
+    "A2": 888,
+    "B1": 4137,
+    "B2": 399,
+    "C1": 22
+  },
+  "by_type": {
+    "authentic_tutoring": 2623,
+    "tutor_response": 2823
+  },
+  "data_source": "CIMA tutoring dataset - authentic teacher-student conversations"
+}

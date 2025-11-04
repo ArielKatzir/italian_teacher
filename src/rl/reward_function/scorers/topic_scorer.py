@@ -181,46 +181,46 @@ Respond ONLY with a JSON object:
 
     def _extract_italian_text(self, exercise: Dict[str, Any]) -> str:
         """
-        Extract Italian text from exercise for analysis.
+        Extract Italian text from exercise for topic analysis.
 
-        Filters out English text (like "Translate:" prompts) to focus on Italian only.
+        For translation exercises: ONLY uses the Italian answer (correct_answer).
+        For other types: Uses the Italian question text.
         """
         import re
 
-        parts = []
+        exercise_type = exercise.get("type", "")
 
+        # For translation exercises, ONLY analyze the Italian answer
+        if exercise_type == "translation":
+            return exercise.get("correct_answer", "").strip()
+
+        # For fill-in-blank, include question with answer inserted
+        if exercise_type == "fill_in_blank":
+            question = exercise.get("question", "")
+            answer = exercise.get("correct_answer", "")
+            if "___" in question and answer:
+                return question.replace("___", answer, 1).strip()
+
+        # For other types (multiple_choice, etc.), use question if it's Italian
         if "question" in exercise:
             question = exercise["question"]
             # Remove common English prompts
-            question = re.sub(
+            question_clean = re.sub(
                 r"^(Translate|Fill in the blank|Choose the correct answer):\s*",
                 "",
                 question,
                 flags=re.IGNORECASE,
-            )
-            # Only include if it contains Italian-looking text (has Italian articles/words)
+            ).strip()
+
+            # Check if it contains Italian indicators
             italian_indicators = [
-                "il",
-                "la",
-                "le",
-                "gli",
-                "lo",
-                "un",
-                "una",
-                "è",
-                "sono",
-                "di",
-                "a",
-                "per",
-                "che",
+                "il", "la", "le", "gli", "lo", "un", "una", "è", "sono",
+                "di", "a", "per", "che", "ho", "hai", "ha", "abbiamo"
             ]
-            if any(indicator in question.lower() for indicator in italian_indicators):
-                parts.append(question)
+            if any(indicator in question_clean.lower().split() for indicator in italian_indicators):
+                return question_clean
 
-        if "answer" in exercise:
-            parts.append(exercise["answer"])
-
-        return " ".join(parts)
+        return ""
 
     @property
     def max_score(self) -> float:

@@ -52,7 +52,7 @@ def main():
 
     students = []
     student_data = [
-        ("Marco Rossi", "marco.rossi@example.com"),
+        ("Mario Rossi", "mario.rossi@example.com"),
         ("Giulia Bianchi", "giulia.bianchi@example.com"),
         ("Luca Verdi", "luca.verdi@example.com"),
     ]

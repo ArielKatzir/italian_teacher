@@ -1,0 +1,28 @@
+{
+  "collection_stats": {
+    "total_pairs": 1000,
+    "by_difficulty": {
+      "beginner": 1000,
+      "intermediate": 0,
+      "advanced": 0
+    },
+    "by_length": {
+      "short": 1000,
+      "medium": 0,
+      "long": 0
+    },
+    "sources": [
+      {
+        "name": "manythings_italian_english",
+        "description": "Italian-English sentence pairs from ManyThings.org",
+        "pairs_count": 1000
+      }
+    ]
+  },
+  "collection_date": "2025-09-18T00:33:10.007723",
+  "source": "tatoeba_sentence_corpus",
+  "files_created": [
+    "italian_sentences.json",
+    "italian_sentences_beginner.json"
+  ]
+}

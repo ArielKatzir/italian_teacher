@@ -4,7 +4,7 @@ Italian Teacher API - FastAPI application.
 This API provides endpoints for:
 - Teachers to create students and homework assignments
 - Students to retrieve their homework
-- Background homework generation using MarcoInference
+- Background homework generation using GPU inference
 """
 
 from contextlib import asynccontextmanager
