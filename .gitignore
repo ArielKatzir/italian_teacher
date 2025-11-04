@@ -123,8 +123,7 @@ mlruns/
 lightning_logs/
 
 # Data files
-data/raw/
-data/datasets
+data/
 *.csv
 *.tsv
 *.json.gz
@@ -161,3 +160,4 @@ ehthumbs.db
 Thumbs.db
 
 logs.txt
+
