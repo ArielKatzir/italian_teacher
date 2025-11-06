@@ -1,60 +1,46 @@
 """
-Modular Reward Function for Italian Exercise Generation.
+Italian language exercise reward function.
 
+This implements the complete Italian exercise evaluation system with:
+- JSON validation
+- Exercise quality checks
+- Italian-specific linguistic validation
+- CEFR level alignment
+- Fluency assessment
+- Grammar correctness
+- Coherence evaluation
+- Topic adherence
 
-Scores exercises on 8 dimensions (normalized to 100 points):
-1. JSON Validity (15 points) - Structure and format
-2. Exercise Quality (20 points) - Context validation, redundancy checks
-3. Linguistic Quality (15 points) - Comprehensive Italian grammar validation
-4. CEFR Level Alignment (30 points) - Appropriate difficulty for target level [INCREASED WEIGHT]
-5. Fluency (10 points) - Natural language flow and construction
-6. Grammar Correctness (10 points) - Matches requested grammar_focus
-7. Coherence (10 points) - Logical sense and naturalness
-8. Topic Adherence (10 points) - Relevant to requested topic
-
-Total raw score: 120 points → normalized to 100
-This modular version uses individual scorer classes for each component.
+This is a refactored version that uses organized prompts and can be extended
+for other subjects (e.g., Math).
 """
 
 import asyncio
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+import spacy
 import torch
 
-# Add parent directory to path for standalone execution
-if __name__ == "__main__":
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-
-import spacy
-
-# Use absolute imports that work both as module and standalone
-try:
-    from .scorers import (
-        CEFRScorer,
-        CoherenceScorer,
-        ExerciseQualityScorer,
-        FluencyScorer,
-        LLMAPIHandler,
-        GrammarScorer,
-        JSONScorer,
-        LinguisticScorer,
-        TopicScorer,
-    )
-except ImportError:
-    from src.rl.reward_function.scorers import (
-        CEFRScorer,
-        CoherenceScorer,
-        LLMAPIHandler,
-        ExerciseQualityScorer,
-        FluencyScorer,
-        GrammarScorer,
-        JSONScorer,
-        LinguisticScorer,
-        TopicScorer,
-    )
+from ...base import (
+    JSONScorer,
+    LLMAPIHandler,
+)
+from .scorers import (
+    ItalianGrammarScorer,
+    ItalianLinguisticScorer,
+    ItalianCEFRScorer,
+    ItalianCoherenceScorer,
+    ItalianFluencyScorer,
+    ItalianTopicScorer,
+    ItalianExerciseQualityScorer,
+)
+from .prompts import (
+    get_grammar_prompt,
+    get_cefr_prompt,
+    get_coherence_prompt,
+    get_fluency_prompt,
+)
 
 
 @dataclass
@@ -79,7 +65,7 @@ class RewardBreakdown:
             f"  Quality: {self.exercise_quality}/20\n"
             f"  Linguistic: {self.linguistic_quality}/15\n"
             f"  CEFR: {self.cefr_alignment}/30\n"
-            f"  Fluency: {self.fluency}/10\n" # This will be 0 if disabled
+            f"  Fluency: {self.fluency}/10\n"
             f"  Grammar: {self.grammar_correctness}/10\n"
             f"  Coherence: {self.coherence}/10\n"
             f"  Topic: {self.topic_adherence}/10\n"
@@ -87,19 +73,22 @@ class RewardBreakdown:
         )
 
 
-class ExerciseRewardFunction:
+class ItalianRewardFunction:
     """
-    Modular reward function for scoring Italian exercise quality.
+    Italian-specific reward function for exercise evaluation.
 
-    Uses individual scorer components (120 points total → normalized to 100):
-    - JSONScorer: Structure validation with STRICT type penalties (15 pts)
-    - ExerciseQualityScorer: Context validation, redundancy checks (20 pts)
-    - LinguisticScorer: Italian grammar rules (15 pts)
-    - CEFRScorer: Level-appropriate complexity (30 pts) [INCREASED WEIGHT]
-    - FluencyScorer: Natural language flow (10 pts)
-    - GrammarScorer: Grammar focus validation using LLM (10 pts)
-    - CoherenceScorer: Logical sense and coherence (10 pts)
-    - TopicScorer: Semantic similarity to topic (10 pts)
+    Scoring breakdown (120 points total → normalized to 100):
+    - JSON Validity: 15 points
+    - Exercise Quality: 20 points
+    - Linguistic Quality: 15 points (Italian grammar rules)
+    - CEFR Alignment: 30 points (difficulty appropriateness)
+    - Fluency: 10 points (natural Italian flow)
+    - Grammar Correctness: 10 points (matches requested grammar focus)
+    - Coherence: 10 points (logical sense)
+    - Topic Adherence: 10 points (semantic relevance)
+
+    This is a refactored version that uses organized prompts from the
+    subjects/italian/prompts/ directory.
     """
 
     def __init__(
@@ -107,20 +96,19 @@ class ExerciseRewardFunction:
         spacy_model: str = "it_core_news_sm",
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
         disabled_scorers: List[str] = None,
-        fluency_use_llm: bool = False, # Keep specific flag for convenience
-        concurrency_limit: int = 20, # New concurrency limit
+        fluency_use_llm: bool = False,
+        concurrency_limit: int = 20,
     ):
         """
-        Initialize modular reward function.
+        Initialize Italian reward function.
 
         Args:
             spacy_model: Italian spaCy model name (default: it_core_news_sm for speed)
-            device: The device to run heavy models on ('cuda' or 'cpu').
-            disabled_scorers: A list of scorer names to disable (e.g., ["fluency", "cefr"]).
-            fluency_use_llm: Specifically enable the LLM component of the FluencyScorer.
-            concurrency_limit: Max number of concurrent OpenAI API calls.
+            device: Device for heavy models ('cuda' or 'cpu')
+            disabled_scorers: List of scorer names to disable
+            fluency_use_llm: Enable LLM-based fluency scoring
+            concurrency_limit: Max concurrent API calls
         """
-        # Handle None default for disabled_scorers (avoid mutable default argument)
         if disabled_scorers is None:
             disabled_scorers = []
 
@@ -141,22 +129,27 @@ class ExerciseRewardFunction:
         # Create a single, shared LLM API handler
         self.llm_handler = LLMAPIHandler()
 
-        # Initialize individual scorers
+        # Initialize individual scorers with Italian-specific prompts
         print("Initializing scorers...")
         all_scorers = {
-            "json": JSONScorer(nlp=None),  # Doesn't need NLP
-            "quality": ExerciseQualityScorer(nlp=self.nlp),  # Context validation, redundancy
-            "linguistic": LinguisticScorer(nlp=self.nlp),
-            # Pass the shared handler to all LLM-based scorers
-            "cefr": CEFRScorer(self.llm_handler),
-            "fluency": FluencyScorer(nlp=self.nlp, llm_handler=self.llm_handler, use_llm=fluency_use_llm, disabled="fluency" in disabled_scorers),
-            "grammar": GrammarScorer(self.llm_handler),
-            "coherence": CoherenceScorer(self.llm_handler),
-            "topic": TopicScorer(nlp=None, device=self.device),  # Uses sentence transformer
+            "json": JSONScorer(nlp=None),
+            "quality": ItalianExerciseQualityScorer(nlp=self.nlp),
+            "linguistic": ItalianLinguisticScorer(nlp=self.nlp),
+            # LLM scorers with Italian-specific prompts
+            "cefr": ItalianCEFRScorer(self.llm_handler, prompt_fn=get_cefr_prompt),
+            "fluency": ItalianFluencyScorer(
+                nlp=self.nlp,
+                llm_handler=self.llm_handler,
+                use_llm=fluency_use_llm,
+                disabled="fluency" in disabled_scorers,
+                prompt_fn=get_fluency_prompt,
+            ),
+            "grammar": ItalianGrammarScorer(self.llm_handler, prompt_fn=get_grammar_prompt),
+            "coherence": ItalianCoherenceScorer(self.llm_handler, prompt_fn=get_coherence_prompt),
+            "topic": ItalianTopicScorer(nlp=None, device=self.device),
         }
 
         # Filter out disabled scorers
-        disabled_scorers = disabled_scorers or []
         self.scorers = {
             name: scorer
             for name, scorer in all_scorers.items()
@@ -166,7 +159,8 @@ class ExerciseRewardFunction:
         # Calculate the dynamic max score based on active scorers
         self.max_score = sum(scorer.max_score for scorer in self.scorers.values())
 
-        print(f"✅ Reward function initialized. Active scorers: {list(self.scorers.keys())}")
+        print(f"✅ Italian reward function initialized")
+        print(f"   Active scorers: {list(self.scorers.keys())}")
         if disabled_scorers:
             print(f"   Disabled scorers: {disabled_scorers}")
 
@@ -177,42 +171,30 @@ class ExerciseRewardFunction:
         Score an exercise.
 
         Args:
-            exercise: Generated exercise dict with fields:
-                - type: str (fill_in_blank, translation, multiple_choice)
-                - question: str (Italian)
-                - answer: str (Italian)
-                - options: List[str] (for multiple_choice)
-                - correct_option: int (for multiple_choice)
-            request: Original request dict with fields:
-                - level: str (A1, A2, B1, B2, C1, C2)
-                - grammar_focus: str
-                - topic: str
-                - num_exercises: int
+            exercise: Generated exercise dict
+            request: Original request dict
 
         Returns:
             Tuple of (total_score, breakdown)
         """
         all_errors = []
-
         loop = asyncio.get_running_loop()
 
-        # --- Create a task for each active scorer ---
+        # Create a task for each active scorer
         tasks = {}
         for name, scorer in self.scorers.items():
-            # CPU-bound scorers run in a thread pool to avoid blocking
+            # CPU-bound scorers run in a thread pool
             if name in ["json", "quality", "linguistic", "topic"]:
                 tasks[name] = loop.run_in_executor(None, scorer.score, exercise, request)
             # I/O-bound (LLM) or async scorers run directly
             else:
                 tasks[name] = scorer.score(exercise, request, semaphore)
 
-        # --- Gather results concurrently ---
+        # Gather results concurrently
         task_results = await asyncio.gather(*tasks.values())
-        
-        # --- Map results back to scorer names ---
         results_map = dict(zip(tasks.keys(), task_results))
 
-        # --- Safely extract scores and errors ---
+        # Extract scores and errors
         def get_score(name):
             return results_map.get(name, (0.0, []))
 
@@ -225,7 +207,7 @@ class ExerciseRewardFunction:
         coherence_score, coherence_errors = get_score("coherence")
         topic_score, topic_errors = get_score("topic")
 
-        # --- Aggregate errors and calculate total score ---
+        # Aggregate errors and calculate total score
         all_errors = (
             json_errors + quality_errors + linguistic_errors + cefr_errors +
             fluency_errors + grammar_errors + coherence_errors + topic_errors
@@ -238,7 +220,6 @@ class ExerciseRewardFunction:
 
         total = min(100, (raw_total / self.max_score) * 100) if self.max_score > 0 else 0.0
 
-        # --- Create final breakdown ---
         breakdown = RewardBreakdown(
             json_validity=json_score,
             exercise_quality=quality_score,
@@ -249,7 +230,7 @@ class ExerciseRewardFunction:
             coherence=coherence_score,
             topic_adherence=topic_score,
             total=total,
-            errors=list(filter(None, all_errors)), # Filter out empty error strings
+            errors=list(filter(None, all_errors)),
         )
 
         return total, breakdown
@@ -263,9 +244,12 @@ class ExerciseRewardFunction:
         """
         Score multiple exercises and return average score + individual breakdowns.
 
+        This method is optimized for batch scoring with concurrent API calls.
+
         Args:
             exercises: List of exercise dictionaries to score
             request: Request context (same for all exercises)
+            semaphore: Optional semaphore for rate limiting
 
         Returns:
             Tuple of (average_score, list of (score, breakdown) tuples)
@@ -273,36 +257,31 @@ class ExerciseRewardFunction:
         if not exercises:
             return 0.0, []
 
-        # --- 1. Run all CPU-bound scorers for all exercises ---
+        # Use the same optimized batch scoring logic from the original
+        # Run all CPU-bound scorers for all exercises
         cpu_scorers = {name: scorer for name, scorer in self.scorers.items() if name in ["json", "quality", "linguistic", "topic"]}
         cpu_results_by_exercise = [{} for _ in exercises]
 
         loop = asyncio.get_running_loop()
-        # print("  - Running CPU-bound scorers...")  # Commented out to reduce log noise
         for name, scorer in cpu_scorers.items():
             try:
                 tasks = [loop.run_in_executor(None, scorer.score, ex, request) for ex in exercises]
                 results = await asyncio.gather(*tasks)
                 for i, result in enumerate(results):
                     cpu_results_by_exercise[i][name] = result
-                # print(f"    ✅ {name}: success")  # Commented out to reduce log noise
             except Exception as e:
                 print(f"    ❌ {name}: failed with {e}")
 
-
-        # --- 2. Run batch-level JSON checks ---
+        # Run batch-level JSON checks
         batch_json_score = 0.0
         batch_json_errors = []
         if "json" in self.scorers:
             try:
                 batch_json_score, batch_json_errors = self.scorers["json"].score_batch(exercises, request)
-                # print(f"    ✅ json (batch): success")  # Commented out to reduce log noise
             except Exception as e:
                 print(f"    ❌ json (batch): failed with {e}")
 
-
-        # --- 3. Run all I/O-bound (LLM) scorers in a single batched call per scorer ---
-        # print("  - Running I/O-bound (LLM) scorers...")  # Commented out to reduce log noise
+        # Run all I/O-bound (LLM) scorers in batched calls
         io_tasks = {
             "grammar": self.scorers["grammar"].score_batch(exercises, request, semaphore) if "grammar" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
             "coherence": self.scorers["coherence"].score_batch(exercises, request, semaphore) if "coherence" in self.scorers else asyncio.sleep(0, [(0.0, [])] * len(exercises)),
@@ -310,24 +289,21 @@ class ExerciseRewardFunction:
             "fluency": self.scorers["fluency"].score_batch(exercises, request, semaphore) if "fluency" in self.scorers and self.scorers["fluency"].use_llm else asyncio.sleep(0, [(10.0, [])] * len(exercises)),
         }
 
-        # Add timeout protection to prevent hanging (90s total for all scorers to try multiple providers)
+        # Add timeout protection
         try:
             results = await asyncio.wait_for(
                 asyncio.gather(*io_tasks.values(), return_exceptions=True),
                 timeout=90.0
             )
         except asyncio.TimeoutError:
-            # print("    ⚠️  LLM scorers timed out after 90s, using default scores")  # Commented out to reduce log noise
             results = [[(5.0, [f"{name} timed out"])] * len(exercises) for name in io_tasks.keys()]
-        
+
         results_map = dict(zip(io_tasks.keys(), results))
 
         def get_io_results(name):
             result = results_map.get(name)
             if isinstance(result, Exception):
-                # print(f"    ❌ {name}: failed with {result}")  # Commented out to reduce log noise
-                return [(0.0, [f"{name} scorer failed: {result}"]) for _ in exercises]
-            # print(f"    ✅ {name}: success")  # Commented out to reduce log noise
+                raise result
             return result
 
         grammar_results = get_io_results("grammar")
@@ -335,9 +311,7 @@ class ExerciseRewardFunction:
         cefr_results = get_io_results("cefr")
         fluency_results = get_io_results("fluency")
 
-
-        # --- 4. Combine all results for each exercise ---
-        # print("  - Aggregating results...")  # Commented out to reduce log noise
+        # Combine all results for each exercise
         results = []
         for i in range(len(exercises)):
             # Get CPU scores
@@ -373,27 +347,5 @@ class ExerciseRewardFunction:
             results.append((total, breakdown))
 
         total_score = sum(score for score, breakdown in results)
-
         avg_score = total_score / len(exercises) if exercises else 0.0
-        # print("  - Scoring complete.")  # Commented out to reduce log noise
         return avg_score, results
-
-
-# Convenience function
-_reward_function = None
-
-
-async def score_exercise(
-    exercise: Dict[str, Any], request: Dict[str, Any], semaphore: asyncio.Semaphore = None
-) -> Tuple[float, RewardBreakdown]:
-    """
-    Score an exercise (convenience function).
-
-    Creates a global reward function instance and scores the exercise.
-    For repeated use, create an ExerciseRewardFunction instance directly.
-    """
-    global _reward_function
-    if _reward_function is None:
-        _reward_function = ExerciseRewardFunction()
-
-    return await _reward_function.score(exercise, request, semaphore)

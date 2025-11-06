@@ -10,11 +10,15 @@ from pathlib import Path
 from typing import Dict, List
 
 try:
-    # Try relative imports first (when used as package)
-    from .rl_data import get_vocabulary_by_cefr, load_italian_vocabulary
+    # Try new refactored location first
+    from .reward_function.subjects.italian.data import get_vocabulary_by_cefr, load_italian_vocabulary
 except ImportError:
-    # Fall back to direct imports (when used standalone)
-    from rl_data import get_vocabulary_by_cefr, load_italian_vocabulary
+    try:
+        # Try relative imports (when used as package)
+        from .rl_data import get_vocabulary_by_cefr, load_italian_vocabulary
+    except ImportError:
+        # Fall back to direct imports (when used standalone)
+        from rl_data import get_vocabulary_by_cefr, load_italian_vocabulary
 
 # Grammar focuses for Italian exercises
 GRAMMAR_FOCUSES = [

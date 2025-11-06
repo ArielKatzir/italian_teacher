@@ -22,7 +22,7 @@ class BaseScorer(ABC):
         Initialize base scorer.
 
         Args:
-            nlp: spaCy Italian language model (optional, not all scorers need it)
+            nlp: spaCy language model (optional, not all scorers need it)
         """
         self.nlp = nlp
 
@@ -34,12 +34,12 @@ class BaseScorer(ABC):
         Args:
             exercise: Generated exercise dict with fields:
                 - type: str (fill_in_blank, translation, multiple_choice)
-                - question: str (Italian)
-                - answer: str (Italian)
+                - question: str
+                - answer: str
                 - options: List[str] (for multiple_choice)
                 - correct_option: int (for multiple_choice)
             request: Original request dict with fields:
-                - level: str (A1, A2, B1, B2, C1, C2)
+                - level: str (difficulty level)
                 - grammar_focus: str
                 - topic: str
                 - num_exercises: int

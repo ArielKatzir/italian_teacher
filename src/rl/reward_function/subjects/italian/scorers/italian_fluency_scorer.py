@@ -11,8 +11,8 @@ from typing import Any, Dict, List, Tuple
 
 import spacy
 
-from .base_llm_scorer import BaseLLMScorer
-from .text_utils import extract_italian_text, is_exclamation_or_idiom
+from ....base import BaseLLMScorer
+from ..text_utils import extract_italian_text, is_exclamation_or_idiom
 
 class FluencyScorer(BaseLLMScorer):
     """
@@ -26,13 +26,20 @@ class FluencyScorer(BaseLLMScorer):
     - LLM-based naturalness check for subtle issues
     """
 
-    def __init__(self, nlp: spacy.language.Language, llm_handler, use_llm: bool = False, disabled: bool = False):
+    def __init__(self, nlp: spacy.language.Language, llm_handler, use_llm: bool = False, disabled: bool = False, prompt_fn=None, **kwargs):
+        # Require prompt_fn if using LLM
+        if use_llm and not disabled and prompt_fn is None:
+            raise ValueError(
+                "FluencyScorer requires a prompt_fn when use_llm=True. "
+                "Provide a subject-specific prompt function."
+            )
+
         # Always initialize the parent class
-        super().__init__(llm_handler)
+        super().__init__(llm_handler, prompt_fn=prompt_fn, **kwargs)
         self.nlp = nlp
         if use_llm and not disabled:
             print("  ✅ FluencyScorer: LLM checking is enabled.")
-        
+
         self.use_llm = use_llm and not disabled
         self.disabled = disabled
 

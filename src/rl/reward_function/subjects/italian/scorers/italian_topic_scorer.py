@@ -11,10 +11,10 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from .base import BaseScorer
+from ....base import BaseScorer
 
 
-class TopicScorer(BaseScorer):
+class ItalianTopicScorer(BaseScorer):
     """
     Scores topic adherence (0-10 points).
 

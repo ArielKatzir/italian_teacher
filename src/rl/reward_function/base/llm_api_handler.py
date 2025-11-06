@@ -399,9 +399,10 @@ class LLMAPIHandler:
         attempts = []
 
         for provider, model_name, cost, avg_latency in models_to_try:
-            # Timeout strategy: Give each model 4x its expected latency, max 10s per attempt
-            # With model-level cooldowns, we can be a bit more patient since we have many models to try
-            attempt_timeout = min(avg_latency * 4.0, deadline - time.time(), 10.0)
+            # Timeout strategy: Give each model 8x its expected latency, max 20s per attempt
+            # Increased from 4x/10s to handle rate limiting and retries better
+            # With model-level cooldowns, we can be patient since we have many models to try
+            attempt_timeout = min(avg_latency * 8.0, deadline - time.time(), 20.0)
             if attempt_timeout <= 0:
                 break # Total timeout exceeded
 

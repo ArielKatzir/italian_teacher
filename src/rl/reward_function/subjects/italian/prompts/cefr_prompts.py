@@ -1,44 +1,42 @@
 """
-CEFR level alignment scorer.
-
-Validates exercise complexity matches target CEFR level (0-20 points).
+Italian CEFR level alignment evaluation prompts.
+Extracted from cefr_scorer.py for better organization and subject-specific customization.
 """
 
 import json
 from typing import Any, Dict, List
 
-from .base_llm_scorer import BaseLLMScorer
 
-
-class CEFRScorer(BaseLLMScorer):
+def get_cefr_prompt(exercises: List[Dict[str, Any]], request: Dict[str, Any]) -> str:
     """
-    Scores CEFR level alignment (0-20 points) using a batched LLM.
-    Uses models configured in SCORER_MODEL_CONFIG (base_llm_scorer.py).
+    Generate prompt for evaluating CEFR level appropriateness for Italian exercises.
+
+    Args:
+        exercises: List of exercises to evaluate
+        request: Request context with level, grammar_focus, exercise_types
+
+    Returns:
+        Formatted prompt string for LLM evaluation
     """
+    level = request.get("level", "A2").upper()
+    grammar_focus = request.get("grammar_focus", "any")
+    exercise_types = request.get("exercise_types", ["any"])
 
-    def __init__(self, llm_handler):
-        super().__init__(llm_handler)
+    exercises_json_string = json.dumps(
+        [
+            {
+                "id": i,
+                "type": ex.get("type"),
+                "question": ex.get("question"),
+                "correct_answer": ex.get("correct_answer"),
+                "options": ex.get("options"),
+            }
+            for i, ex in enumerate(exercises)
+        ],
+        indent=2,
+    )
 
-    def get_prompt(self, exercises: List[Dict[str, Any]], request: Dict[str, Any]) -> str:
-        level = request.get("level", "A2").upper()
-        grammar_focus = request.get("grammar_focus", "any")
-        exercise_types = request.get("exercise_types", ["any"])
-
-        exercises_json_string = json.dumps(
-            [
-                {
-                    "id": i,
-                    "type": ex.get("type"),
-                    "question": ex.get("question"),
-                    "correct_answer": ex.get("correct_answer"),
-                    "options": ex.get("options"),
-                }
-                for i, ex in enumerate(exercises)
-            ],
-            indent=2,
-        )
-
-        return f"""
+    return f"""
 You are an EXTREMELY STRICT Italian language professor evaluating CEFR level appropriateness. Your job is to HARSHLY penalize exercises that don't match the target level. Be UNFORGIVING.
 
 **REQUEST:**
@@ -93,11 +91,3 @@ Check if the exercise is fundamentally broken FIRST:
 
 Respond with JSON: {{"scores": [{{"id": 0, "score": X, "issue": "specific issue"}}]}}
 """
-
-    @property
-    def max_score(self) -> float:
-        return 30.0
-
-    @property
-    def name(self) -> str:
-        return "cefr_alignment"

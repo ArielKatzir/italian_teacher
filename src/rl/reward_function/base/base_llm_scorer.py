@@ -13,7 +13,7 @@ import httpx
 import json5  # Use the more lenient json5 parser
 import random
 
-from .base import BaseScorer
+from .base_scorer import BaseScorer
 from .llm_api_handler import LLMAPIHandler
 
 try:
@@ -94,7 +94,7 @@ class BaseLLMScorer(BaseScorer):
     # Class-level model override for testing purposes
     _model_override = None
 
-    def __init__(self, llm_handler: LLMAPIHandler, batch_size: int = 10, **kwargs):
+    def __init__(self, llm_handler: LLMAPIHandler, batch_size: int = 10, prompt_fn=None, **kwargs):
         if not isinstance(llm_handler, LLMAPIHandler):
             raise TypeError("BaseLLMScorer requires a valid LLMAPIHandler instance.")
 
@@ -103,6 +103,9 @@ class BaseLLMScorer(BaseScorer):
 
         # Centralize all API handling into the LLMAPIHandler
         self.llm_handler = llm_handler
+
+        # Optional: Inject custom prompt function (for subject-specific customization)
+        self._prompt_fn = prompt_fn
 
         print(f"  ✅ LLM scoring enabled for {self.name} (batch size: {self.batch_size})")
 
@@ -146,10 +149,23 @@ class BaseLLMScorer(BaseScorer):
 
     def get_prompt(self, exercises: List[Dict[str, Any]], request: Dict[str, Any]) -> str:
         """
-        Child classes must implement this to return the specific prompt
-        for a batch of exercises.
+        Get the prompt for a batch of exercises.
+
+        If a prompt function was injected via prompt_fn, use that.
+        Otherwise, child classes must implement this method.
         """
-        raise NotImplementedError
+        if self._prompt_fn:
+            return self._prompt_fn(exercises, request)
+        raise NotImplementedError(f"{self.__class__.__name__} must implement get_prompt() or provide prompt_fn")
+
+    def get_system_prompt(self) -> str:
+        """
+        Get the system prompt for the LLM.
+
+        Override in subject-specific scorers to provide subject-specific instructions.
+        Default is generic.
+        """
+        return "You are an expert evaluator. Respond accurately in the requested JSON format."
 
     async def score_batch(
         self, exercises: List[Dict[str, Any]], request: Dict[str, Any], semaphore: asyncio.Semaphore = None
@@ -174,7 +190,8 @@ class BaseLLMScorer(BaseScorer):
 
         try:
             user_prompt = self.get_prompt(exercises, request)
-            system_prompt = "You are an expert Italian language teacher and evaluator. Respond accurately in the requested JSON format."
+            # Generic system prompt - subject-specific scorers can override get_system_prompt()
+            system_prompt = self.get_system_prompt()
 
             json_output_schema = {
                 "type": "object",
@@ -200,17 +217,34 @@ class BaseLLMScorer(BaseScorer):
             preferred_model = allowed_models[0] if allowed_models else None
             preferred_provider = self.llm_handler.get_provider_for_model(preferred_model) if preferred_model else None
 
+            # Retry the entire fallback chain until success
+            # Strategy: Try all models with 90s timeout, if all fail, wait and retry the whole chain
+            # This ensures we eventually get a score rather than returning a default
+            max_retries = 5  # Try the entire chain up to 5 times
+            retry_delay = 10.0  # Wait 10s between full chain retries
 
-            # Delegate the call to the handler with scorer-specific model list
-            # Use 40s timeout to allow time for multiple fallback providers under high concurrency
-            result_text, model_used = await self.llm_handler.call_llm(
-                prompt=user_prompt,
-                system_prompt=system_prompt,
-                json_schema=json_output_schema,
-                timeout=40.0, # Generous timeout for trying multiple providers
-                preferred_provider=preferred_provider,
-                allowed_models=allowed_models  # Pass scorer's specific fallback chain
-            )
+            for retry in range(max_retries):
+                try:
+                    # Delegate the call to the handler with scorer-specific model list
+                    # Use 90s timeout per attempt through the fallback chain
+                    result_text, model_used = await self.llm_handler.call_llm(
+                        prompt=user_prompt,
+                        system_prompt=system_prompt,
+                        json_schema=json_output_schema,
+                        timeout=90.0,  # 90s to try all models in chain
+                        preferred_provider=preferred_provider,
+                        allowed_models=allowed_models
+                    )
+                    break  # Success! Exit retry loop
+                except Exception as e:
+                    if retry < max_retries - 1:
+                        # Not the last retry - wait and try again
+                        # print(f"    ⚠️  {self.name} failed (attempt {retry+1}/{max_retries}), retrying in {retry_delay}s...")
+                        await asyncio.sleep(retry_delay)
+                        continue
+                    else:
+                        # Last retry failed - re-raise the exception
+                        raise
 
             parsed_json = self._parse_llm_json(result_text)
             scores_data = parsed_json.get("scores", [])

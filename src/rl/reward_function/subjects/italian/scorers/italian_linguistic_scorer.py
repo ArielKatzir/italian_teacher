@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import spacy
 
-from ...rl_data import ARTICLE_RULES, GENDER_EXCEPTIONS, INVARIANT_ADJECTIVES
-from .base import BaseScorer
+from ..data import ARTICLE_RULES, GENDER_EXCEPTIONS, INVARIANT_ADJECTIVES
+from ....base import BaseScorer
 
 
 class LinguisticScorer(BaseScorer):

@@ -1,41 +1,40 @@
 """
-Coherence scorer.
-Validates if an exercise is logical and makes sense (0-10 points).
+Italian exercise coherence evaluation prompts.
+Extracted from coherence_scorer.py for better organization and subject-specific customization.
 """
 
 import json
 from typing import Any, Dict, List
 
-from .base_llm_scorer import BaseLLMScorer
 
-
-class CoherenceScorer(BaseLLMScorer):
+def get_coherence_prompt(exercises: List[Dict[str, Any]], request: Dict[str, Any]) -> str:
     """
-    Scores exercise coherence (0-10 points) using a batched LLM.
-    Uses models configured in SCORER_MODEL_CONFIG (base_llm_scorer.py).
+    Generate prompt for evaluating Italian exercise coherence and naturalness.
+
+    Args:
+        exercises: List of exercises to evaluate (with answers inserted for fill-in-blanks)
+        request: Request context
+
+    Returns:
+        Formatted prompt string for LLM evaluation
     """
+    # For fill-in-the-blank, create the completed sentence for evaluation.
+    processed_exercises = []
+    for i, ex in enumerate(exercises):
+        question = ex.get("question", "")
+        answer = ex.get("correct_answer", "")
+        if ex.get("type") == "fill_in_blank" and "___" in question and answer:
+            completed_text = question.replace("___", answer, 1)
+            processed_exercises.append({"id": i, "completed_exercise": completed_text})
+        else:
+            processed_exercises.append({"id": i, "completed_exercise": f"{question} {answer}".strip()})
 
-    def __init__(self, llm_handler, **kwargs):
-        super().__init__(llm_handler, **kwargs)
+    exercises_json_string = json.dumps(
+        processed_exercises,
+        indent=2,
+    )
 
-    def get_prompt(self, exercises: List[Dict[str, Any]], request: Dict[str, Any]) -> str:
-        # For fill-in-the-blank, create the completed sentence for evaluation.
-        processed_exercises = []
-        for i, ex in enumerate(exercises):
-            question = ex.get("question", "")
-            answer = ex.get("correct_answer", "")
-            if ex.get("type") == "fill_in_blank" and "___" in question and answer:
-                completed_text = question.replace("___", answer, 1)
-                processed_exercises.append({"id": i, "completed_exercise": completed_text})
-            else:
-                processed_exercises.append({"id": i, "completed_exercise": f"{question} {answer}".strip()})
-
-        exercises_json_string = json.dumps(
-            processed_exercises,
-            indent=2,
-        )
-
-        return f"""
+    return f"""
 You are a STRICT evaluator of Italian exercise coherence and naturalness. Be CRITICAL and thorough.
 
 Exercises to evaluate (with answers inserted for fill-in-blanks):
@@ -88,11 +87,3 @@ Exercises to evaluate (with answers inserted for fill-in-blanks):
 
 Respond ONLY with valid JSON: {{"scores": [{{"id": 0, "score": X, "issue": "specific description of problem"}}]}}
 """
-
-    @property
-    def max_score(self) -> float:
-        return 10.0
-
-    @property
-    def name(self) -> str:
-        return "coherence"

@@ -6,7 +6,7 @@ Validates exercise structure and format (0-15 points).
 
 from typing import Any, Dict, List, Set, Tuple
 
-from .base import BaseScorer
+from .base_scorer import BaseScorer
 
 
 class JSONScorer(BaseScorer):

@@ -3,10 +3,10 @@ from typing import Any, Dict, List, Tuple
 
 import spacy
 
-from .base import BaseScorer
+from ....base import BaseScorer
 
 
-class ExerciseQualityScorer(BaseScorer):
+class ItalianExerciseQualityScorer(BaseScorer):
     """
     Scores exercise construction quality (0-20 points).
 
